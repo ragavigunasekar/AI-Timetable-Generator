@@ -30,7 +30,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://YOUR-FRONTEND-URL.onrender.com",
+      "https://ai-timetable-frontend.onrender.com",
     ],
     credentials: true,
   })
