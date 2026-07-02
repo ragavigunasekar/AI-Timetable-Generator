@@ -511,7 +511,12 @@ res.json({
     res.status(500).json({ message: "Failed to generate timetable" });
   }
 });
-
+app.get("/", (req, res) => {
+  res.json({
+    message: "AI Timetable Backend is Live 🚀",
+    health: "/api/health",
+  });
+});
 // -------------------- START SERVER --------------------
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
