@@ -28,9 +28,10 @@ app.use(express.json());
 // 🔥 FIXED CORS (prevents Network Error)
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: [
+      "http://localhost:5173",
+      "https://YOUR-FRONTEND-URL.onrender.com",
+    ],
     credentials: true,
   })
 );
