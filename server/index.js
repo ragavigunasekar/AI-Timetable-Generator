@@ -29,9 +29,9 @@ app.use(express.json());
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "https://ai-timetable-frontend.onrender.com",
-    ],
+  "http://localhost:5173",
+  "https://ai-timetable-generator-ten.vercel.app",
+],
     credentials: true,
   })
 );

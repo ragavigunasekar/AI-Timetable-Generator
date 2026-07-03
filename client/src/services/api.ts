@@ -2,7 +2,7 @@ import axios from "axios";
 import { useAuthStore } from "../store/authStore";
 
 const api = axios.create({
-  baseURL: "https://ai-timetable-backend-0rm5.onrender.com/api",
+  baseURL: "https://ai-timetable-backend-0rm5.onrender.com/api"
 });
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token ?? localStorage.getItem("ragavi_token");
