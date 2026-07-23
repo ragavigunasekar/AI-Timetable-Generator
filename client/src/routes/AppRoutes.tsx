@@ -9,6 +9,8 @@ import ClassesPage from "../pages/classes/ClassesPage";
 import SchoolSettingsPage from "../pages/settings/SchoolSettingsPage";
 import AllocationPage from "../pages/allocations/AllocationPage";
 import TimetablePage from "../pages/timetable/TimetableGeneratorPage";
+import { ReportsPage } from "../pages/reports/ReportsPage";
+import ProfilePage from "../pages/profile/ProfilePage";
 import ProtectedRoute from "./ProtectedRoute";
 import MainLayout from "../layout/MainLayout.tsx";
 
@@ -26,6 +28,8 @@ function AppRoutes() {
           <Route path="/settings" element={<SchoolSettingsPage />} />
           <Route path="/allocations" element={<AllocationPage />} />
           <Route path="/timetable" element={<TimetablePage />} />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

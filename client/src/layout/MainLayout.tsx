@@ -10,6 +10,8 @@ import {
   Calendar,
   LogOut,
   GraduationCap,
+  BarChart3,
+  User,
 } from "lucide-react";
 
 interface NavItem {
@@ -26,6 +28,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/classes",     label: "Classes",     icon: <Layers className="w-4 h-4" /> },
   { to: "/allocations", label: "Allocations", icon: <ClipboardList className="w-4 h-4" />, section: "Scheduling" },
   { to: "/timetable",   label: "Timetable",   icon: <Calendar className="w-4 h-4" /> },
+  { to: "/reports",     label: "Reports",     icon: <BarChart3 className="w-4 h-4" />, section: "Analysis" },
+  { to: "/profile",     label: "Profile",     icon: <User className="w-4 h-4" /> },
   { to: "/settings",    label: "Settings",    icon: <Settings className="w-4 h-4" />, section: "Configuration" },
 ];
 

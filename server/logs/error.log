@@ -1,0 +1,6 @@
+2026-07-05 17:19:05:195 [31merror[39m: [31mFATAL: JWT_SECRET environment variable is required[39m
+2026-07-05 17:32:36:3236 [31merror[39m: [31mError updating settings: SQLITE_ERROR: no such column: periodDuration[39m
+2026-07-05 17:32:36:3236 [31merror[39m: [31mError: SQLITE_ERROR: no such column: periodDuration[39m
+2026-07-05 17:34:14:3414 [31merror[39m: [31mError updating settings: SQLITE_ERROR: no such column: shortBreaks[39m
+2026-07-05 17:34:14:3414 [31merror[39m: [31mError: SQLITE_ERROR: no such column: shortBreaks[39m
+2026-07-11 23:55:19:5519 [31merror[39m: [31mSyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)[39m

@@ -7,48 +7,9 @@ import { OptimizationPanel } from "../../components/OptimizationPanel";
 import api from "../../services/api";
 import { AlertCircle, Calendar, Plus, Trash2, FileSpreadsheet, PencilLine, Search, X } from "lucide-react";
 import { useToast } from "../../components/ui/ToastProvider";
+import { parseWorkingDays } from "../../utils/dateUtils";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 
-function parseWorkingDays(workingDays: string) {
-  const trimmed = workingDays?.trim();
-  const defaultDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-
-  if (!trimmed) {
-    return defaultDays;
-  }
-
-  const normalized = trimmed.replace(/\s+/g, "");
-  const rangeMatch = normalized.match(/^([A-Za-z]+)-([A-Za-z]+)$/);
-  
-  const capitalize = (s: string) => {
-    if (!s) return "";
-    const lower = s.toLowerCase();
-    if (lower.startsWith("mon")) return "Mon";
-    if (lower.startsWith("tue")) return "Tue";
-    if (lower.startsWith("wed")) return "Wed";
-    if (lower.startsWith("thu")) return "Thu";
-    if (lower.startsWith("fri")) return "Fri";
-    if (lower.startsWith("sat")) return "Sat";
-    if (lower.startsWith("sun")) return "Sun";
-    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-  };
-
-  const ordered = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  if (rangeMatch) {
-    const from = capitalize(rangeMatch[1]);
-    const to = capitalize(rangeMatch[2]);
-    const fromIndex = ordered.indexOf(from);
-    const toIndex = ordered.indexOf(to);
-    if (fromIndex >= 0 && toIndex >= fromIndex) {
-      return ordered.slice(fromIndex, toIndex + 1);
-    }
-  }
-
-  return trimmed
-    .split(",")
-    .map((day) => capitalize(day.trim()))
-    .filter((day) => ordered.includes(day));
-}
 
 function AllocationPage() {
   const navigate = useNavigate();
@@ -73,6 +34,7 @@ function AllocationPage() {
   const setInitialData = useSchoolStore((state) => state.setInitialData);
   const setAllocations = useSchoolStore((state) => state.setAllocations);
   const setGeneratedTimetable = useSchoolStore((state) => state.setGeneratedTimetable);
+  const setUnplacedAllocations = useSchoolStore((state) => state.setUnplacedAllocations);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -166,8 +128,8 @@ function AllocationPage() {
       setAllocations(response.data);
       resetForm();
       showToast("success", editingAllocationId ? "Allocation updated successfully." : "Allocation created successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Failed to save allocation to database.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to save allocation to database.");
       setAiError(message);
       showToast("error", message);
     }
@@ -196,8 +158,8 @@ function AllocationPage() {
         setSelectedConflict(null);
       }
       showToast("success", "Allocation deleted successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Failed to delete allocation from database.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to delete allocation from database.");
       setAiError(message);
       showToast("error", message);
     } finally {
@@ -263,9 +225,14 @@ function AllocationPage() {
       });
 
       setGeneratedTimetable(normalizedTimetable);
+      if (response.data.unplacedAllocations) {
+        setUnplacedAllocations(response.data.unplacedAllocations);
+      } else {
+        setUnplacedAllocations([]);
+      }
       navigate("/timetable");
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || "Failed to generate timetable.";
+    } catch (error: unknown) {
+      const errorMsg = getApiErrorMessage(error, "Failed to generate timetable.");
       setAiError(errorMsg);
     } finally {
       setAiLoading(false);

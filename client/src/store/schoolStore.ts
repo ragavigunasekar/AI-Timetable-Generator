@@ -5,6 +5,7 @@ import type { SchoolClass } from "../types/Class";
 import type { SchoolSettings } from "../types/SchoolSettings";
 import type { Allocation } from "../types/Allocation";
 import type { OptimizationRecommendation } from "../types/Optimization";
+import { parseWorkingDays } from "../utils/dateUtils";
 
 export interface TimetableEntry {
   subject: string;
@@ -50,6 +51,8 @@ interface SchoolState {
   generatedTimetable: TimetableData;
   conflicts: Conflict[];
   timetableHealthScore: number;
+  unplacedAllocations: any[];
+  setUnplacedAllocations: (allocs: any[]) => void;
 
   // ─── Optimization slice ────────────────────────────────────────────────────
   // Populated by useOptimizationEngine hook when the user triggers analysis.
@@ -95,47 +98,6 @@ const defaultSettings: SchoolSettings = {
   breakDurations: "10,10",
 };
 
-function parseWorkingDays(workingDays: string) {
-  const trimmed = workingDays?.trim();
-  const defaultDays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-
-  if (!trimmed) {
-    return defaultDays;
-  }
-
-  const normalized = trimmed.replace(/\s+/g, "");
-  const rangeMatch = normalized.match(/^([A-Za-z]+)-([A-Za-z]+)$/);
-  
-  const capitalize = (s: string) => {
-    if (!s) return "";
-    const lower = s.toLowerCase();
-    if (lower.startsWith("mon")) return "Mon";
-    if (lower.startsWith("tue")) return "Tue";
-    if (lower.startsWith("wed")) return "Wed";
-    if (lower.startsWith("thu")) return "Thu";
-    if (lower.startsWith("fri")) return "Fri";
-    if (lower.startsWith("sat")) return "Sat";
-    if (lower.startsWith("sun")) return "Sun";
-    return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-  };
-
-  const ordered = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-  if (rangeMatch) {
-    const from = capitalize(rangeMatch[1]);
-    const to = capitalize(rangeMatch[2]);
-    const fromIndex = ordered.indexOf(from);
-    const toIndex = ordered.indexOf(to);
-    if (fromIndex >= 0 && toIndex >= fromIndex) {
-      return ordered.slice(fromIndex, toIndex + 1);
-    }
-  }
-
-  return trimmed
-    .split(",")
-    .map((day) => capitalize(day.trim()))
-    .filter((day) => ordered.includes(day));
-}
 
 export const useSchoolStore = create<SchoolState>((set, get) => ({
   teachers: [],
@@ -149,6 +111,9 @@ export const useSchoolStore = create<SchoolState>((set, get) => ({
   optimizationRecommendations: [],
   setOptimizationRecommendations: (recommendations) => set({ optimizationRecommendations: recommendations }),
   clearOptimizationRecommendations: () => set({ optimizationRecommendations: [] }),
+  
+  unplacedAllocations: [],
+  setUnplacedAllocations: (allocs) => set({ unplacedAllocations: allocs }),
   
   recalculateConflicts: () => {
     const { teachers, allocations, classes, schoolSettings, subjects } = get();

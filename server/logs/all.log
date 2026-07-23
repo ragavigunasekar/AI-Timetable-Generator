@@ -1,0 +1,83 @@
+2026-07-05 17:19:05:195 [31merror[39m: [31mFATAL: JWT_SECRET environment variable is required[39m
+2026-07-05 17:19:28:1928 [32minfo[39m: [32mEnvironment variables validated successfully[39m
+2026-07-05 17:19:28:1928 [32minfo[39m: [32m🚀 Server running on http://localhost:4000[39m
+2026-07-05 17:20:43:2043 [32minfo[39m: [32mLogin attempt for email: ragavigunasekar@gmail.com[39m
+2026-07-05 17:20:44:2044 [32minfo[39m: [32mUser logged in successfully: ragavigunasekar@gmail.com (ID: 1)[39m
+2026-07-05 17:24:19:2419 [32minfo[39m: [32mEnvironment variables validated successfully[39m
+2026-07-05 17:24:44:2444 [32minfo[39m: [32mEnvironment variables validated successfully[39m
+2026-07-05 17:24:44:2444 [32minfo[39m: [32m🚀 Server running on http://localhost:4000[39m
+2026-07-05 17:25:40:2540 [32minfo[39m: [32mRegistration attempt for email: test@example.com[39m
+2026-07-05 17:25:40:2540 [32minfo[39m: [32mUser registered successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:28:40:2840 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:28:40:2840 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:29:06:296 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:29:06:296 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:29:21:2921 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:29:21:2921 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:29:35:2935 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:29:35:2935 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:29:43:2943 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:29:43:2943 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:29:51:2951 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:29:51:2951 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:01:301 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:30:01:301 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:01:301 [32minfo[39m: [32mCreating teacher: Test Teacher (999)[39m
+2026-07-05 17:30:01:301 [32minfo[39m: [32mTeacher created successfully: test123[39m
+2026-07-05 17:30:09:309 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:30:09:309 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:09:309 [32minfo[39m: [32mUpdating teacher: test123[39m
+2026-07-05 17:30:09:309 [32minfo[39m: [32mTeacher updated successfully: test123[39m
+2026-07-05 17:30:20:3020 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:30:20:3020 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:20:3020 [32minfo[39m: [32mDeleting teacher: test123[39m
+2026-07-05 17:30:20:3020 [32minfo[39m: [32mTeacher deleted successfully: test123[39m
+2026-07-05 17:30:43:3043 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:30:43:3043 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:43:3043 [32minfo[39m: [32mCreating subject: Test Subject[39m
+2026-07-05 17:30:43:3043 [32minfo[39m: [32mSubject created successfully: subtest123[39m
+2026-07-05 17:30:51:3051 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:30:51:3051 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:30:51:3051 [32minfo[39m: [32mDeleting subject: subtest123[39m
+2026-07-05 17:30:51:3051 [32minfo[39m: [32mSubject deleted successfully: subtest123[39m
+2026-07-05 17:31:23:3123 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:31:23:3123 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:31:23:3123 [32minfo[39m: [32mCreating class: 10-B[39m
+2026-07-05 17:31:23:3123 [32minfo[39m: [32mClass created successfully: classtest123[39m
+2026-07-05 17:31:34:3134 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:31:34:3134 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:31:34:3134 [32minfo[39m: [32mDeleting class: classtest123[39m
+2026-07-05 17:31:34:3134 [32minfo[39m: [32mClass deleted successfully: classtest123[39m
+2026-07-05 17:31:58:3158 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:31:58:3158 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:31:58:3158 [32minfo[39m: [32mCreating allocation: alloctest123[39m
+2026-07-05 17:31:58:3158 [32minfo[39m: [32mAllocation created successfully: alloctest123[39m
+2026-07-05 17:32:10:3210 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:32:10:3210 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:32:10:3210 [32minfo[39m: [32mDeleting allocation: alloctest123[39m
+2026-07-05 17:32:10:3210 [32minfo[39m: [32mAllocation deleted successfully: alloctest123[39m
+2026-07-05 17:32:25:3225 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:32:25:3225 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:32:35:3235 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:32:36:3236 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:32:36:3236 [32minfo[39m: [32mSettings update requested[39m
+2026-07-05 17:32:36:3236 [31merror[39m: [31mError updating settings: SQLITE_ERROR: no such column: periodDuration[39m
+2026-07-05 17:32:36:3236 [31merror[39m: [31mError: SQLITE_ERROR: no such column: periodDuration[39m
+2026-07-05 17:33:29:3329 [32minfo[39m: [32mEnvironment variables validated successfully[39m
+2026-07-05 17:33:29:3329 [32minfo[39m: [32m🚀 Server running on http://localhost:4000[39m
+2026-07-05 17:34:14:3414 [32minfo[39m: [32mLogin attempt for email: test@example.com[39m
+2026-07-05 17:34:14:3414 [32minfo[39m: [32mUser logged in successfully: test@example.com (ID: 6)[39m
+2026-07-05 17:34:14:3414 [32minfo[39m: [32mSettings update requested[39m
+2026-07-05 17:34:14:3414 [31merror[39m: [31mError updating settings: SQLITE_ERROR: no such column: shortBreaks[39m
+2026-07-05 17:34:14:3414 [31merror[39m: [31mError: SQLITE_ERROR: no such column: shortBreaks[39m
+2026-07-11 23:54:20:5420 [32minfo[39m: [32mServer listening on http://localhost:4000[39m
+2026-07-11 23:55:19:5519 [31merror[39m: [31mSyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)[39m
+2026-07-11 23:55:46:5546 [32minfo[39m: [32mUser registered: admin@school.com[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mUser logged in: admin@school.com[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mTeacher created: t1[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mCreated record in subjects: s1[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mCreated record in classes: c1[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mCreated record in allocations: a1[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mTimetable generated with score: 105[39m
+2026-07-11 23:56:57:5657 [32minfo[39m: [32mTimetable saved: tt1[39m
+2026-07-15 19:59:36:5936 [32minfo[39m: [32mServer listening on http://localhost:4000[39m
