@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { useSchoolStore } from "../../store/schoolStore";
 import { EmptyState, LoadingState } from "../../components/common/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 
 interface SubjectFormState {
   id?: string;
@@ -32,8 +33,9 @@ function SubjectsPage() {
       try {
         const response = await api.get("/subjects");
         setSubjects(response.data);
-      } catch (err) {
-        setError("Unable to load subjects. Please refresh the page.");
+      } catch (err: unknown) {
+        const message = getApiErrorMessage(err, "Unable to load subjects. Please refresh the page.");
+        setError(message);
       } finally {
         setIsLoading(false);
       }
@@ -50,8 +52,17 @@ function SubjectsPage() {
   };
 
   const handleSubmit = async () => {
-    if (!subjectName || !periodsPerWeek) {
-      setError("Please enter subject and periods per week.");
+    const trimmedName = subjectName.trim();
+    const trimmedPeriods = periodsPerWeek.trim();
+    const numericPeriods = Number(trimmedPeriods);
+
+    if (!trimmedName || !trimmedPeriods) {
+      setError("Please enter subject name and periods per week.");
+      return;
+    }
+
+    if (isNaN(numericPeriods) || numericPeriods <= 0 || numericPeriods > 50) {
+      setError("Periods per week must be a valid number between 1 and 50.");
       return;
     }
 
@@ -60,8 +71,8 @@ function SubjectsPage() {
       setError("");
       const payload: SubjectFormState = {
         id: editingId || undefined,
-        name: subjectName.trim(),
-        periodsPerWeek: periodsPerWeek.trim(),
+        name: trimmedName,
+        periodsPerWeek: trimmedPeriods,
       };
       const response = editingId
         ? await api.put(`/subjects/${editingId}`, payload)
@@ -69,8 +80,8 @@ function SubjectsPage() {
       setSubjects(response.data);
       resetForm();
       showToast("success", editingId ? "Subject updated successfully." : "Subject created successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to save subject. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to save subject. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {
@@ -95,8 +106,8 @@ function SubjectsPage() {
       await api.delete(`/subjects/${id}`);
       setSubjects(subjects.filter((subject) => subject.id !== id));
       showToast("success", "Subject deleted successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to delete subject. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to delete subject. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {

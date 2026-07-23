@@ -70,7 +70,7 @@ function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
           <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-            <Users className="h-6 h-6" />
+            <Users className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-500">Total Teachers</h3>
@@ -80,7 +80,7 @@ function DashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
           <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
-            <BookOpen className="h-6 h-6" />
+            <BookOpen className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-500">Total Subjects</h3>
@@ -90,7 +90,7 @@ function DashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
           <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-            <Layers className="h-6 h-6" />
+            <Layers className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-500">Total Classes</h3>
@@ -100,7 +100,7 @@ function DashboardPage() {
 
         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
           <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
-            <Briefcase className="h-6 h-6" />
+            <Briefcase className="w-6 h-6" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-slate-500">Total Allocations</h3>

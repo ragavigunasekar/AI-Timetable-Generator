@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { useSchoolStore } from "../../store/schoolStore";
 import { EmptyState, LoadingState } from "../../components/common/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 
 interface ClassFormState {
   id?: string;
@@ -32,8 +33,9 @@ function ClassesPage() {
       try {
         const response = await api.get("/classes");
         setClasses(response.data);
-      } catch (err) {
-        setError("Unable to load classes. Please refresh the page.");
+      } catch (err: unknown) {
+        const message = getApiErrorMessage(err, "Unable to load classes. Please refresh the page.");
+        setError(message);
       } finally {
         setIsLoading(false);
       }
@@ -50,8 +52,11 @@ function ClassesPage() {
   };
 
   const handleSubmit = async () => {
-    if (!className || !section) {
-      setError("Please enter a class and section.");
+    const trimmedClass = className.trim();
+    const trimmedSection = section.trim();
+
+    if (!trimmedClass || !trimmedSection) {
+      setError("Please enter a valid class and section.");
       return;
     }
 
@@ -60,8 +65,8 @@ function ClassesPage() {
       setError("");
       const payload: ClassFormState = {
         id: editingId || undefined,
-        className: className.trim(),
-        section: section.trim(),
+        className: trimmedClass,
+        section: trimmedSection,
       };
       const response = editingId
         ? await api.put(`/classes/${editingId}`, payload)
@@ -69,8 +74,8 @@ function ClassesPage() {
       setClasses(response.data);
       resetForm();
       showToast("success", editingId ? "Class updated successfully." : "Class created successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to save class. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to save class. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {
@@ -95,8 +100,8 @@ function ClassesPage() {
       await api.delete(`/classes/${id}`);
       setClasses(classes.filter((schoolClass) => schoolClass.id !== id));
       showToast("success", "Class deleted successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to delete class. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to delete class. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {

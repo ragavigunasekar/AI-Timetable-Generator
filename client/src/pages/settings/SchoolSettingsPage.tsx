@@ -11,9 +11,12 @@ import api from "../../services/api";
 import { useSchoolStore } from "../../store/schoolStore";
 import type { SchoolSettings } from "../../types/SchoolSettings";
 import { LoadingState } from "../../components/common/LoadingState";
+import { useToast } from "../../components/ui/ToastProvider";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 
 function SchoolSettingsPage() {
   const setSchoolSettings = useSchoolStore((state) => state.setSchoolSettings);
+  const { showToast } = useToast();
   const [settings, setSettings] = useState<SchoolSettings>({
   schoolName: "",
 
@@ -59,8 +62,9 @@ const allDays = [
         const response = await api.get("/settings");
         setSettings(response.data);
         setSchoolSettings(response.data);
-      } catch (error) {
-        setError("Unable to load school settings.");
+      } catch (err: unknown) {
+        const msg = getApiErrorMessage(err, "Unable to load school settings.");
+        setError(msg);
       } finally {
         setIsLoading(false);
       }
@@ -118,8 +122,11 @@ const toggleDay = (day: string) => {
       await api.put("/settings", settings);
       setSchoolSettings(settings);
       setMessage("Settings updated successfully.");
-    } catch (error) {
-      setError("Unable to save settings.");
+      showToast("success", "Settings updated successfully.");
+    } catch (err: unknown) {
+      const msg = getApiErrorMessage(err, "Unable to save settings.");
+      setError(msg);
+      showToast("error", msg);
     } finally {
       setIsSaving(false);
     }

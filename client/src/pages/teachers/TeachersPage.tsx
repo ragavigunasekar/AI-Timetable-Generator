@@ -4,6 +4,7 @@ import api from "../../services/api";
 import { useSchoolStore } from "../../store/schoolStore";
 import { EmptyState, LoadingState } from "../../components/common/LoadingState";
 import { useToast } from "../../components/ui/ToastProvider";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 
 interface TeacherFormState {
   id?: string;
@@ -36,8 +37,9 @@ function TeachersPage() {
       try {
         const response = await api.get("/teachers");
         setTeachers(response.data);
-      } catch (err) {
-        setError("Unable to load teachers. Please refresh.");
+      } catch (err: unknown) {
+        const message = getApiErrorMessage(err, "Unable to load teachers. Please refresh the page.");
+        setError(message);
       } finally {
         setIsLoading(false);
       }
@@ -56,8 +58,19 @@ function TeachersPage() {
   };
 
   const handleSubmit = async () => {
-    if (!teacherCode || !teacherName || !subject || !workload) {
+    const trimmedCode = teacherCode.trim();
+    const trimmedName = teacherName.trim();
+    const trimmedSubject = subject.trim();
+    const trimmedWorkload = workload.trim();
+    const numericWorkload = Number(trimmedWorkload);
+
+    if (!trimmedCode || !trimmedName || !trimmedSubject || !trimmedWorkload) {
       setError("Please fill in all teacher fields.");
+      return;
+    }
+
+    if (isNaN(numericWorkload) || numericWorkload < 0 || numericWorkload > 100) {
+      setError("Workload must be a valid non-negative number (max 100).");
       return;
     }
 
@@ -66,10 +79,10 @@ function TeachersPage() {
       setError("");
       const payload: TeacherFormState = {
         id: editingId || undefined,
-        code: teacherCode.trim(),
-        name: teacherName.trim(),
-        subject: subject.trim(),
-        workload: workload.trim(),
+        code: trimmedCode,
+        name: trimmedName,
+        subject: trimmedSubject,
+        workload: trimmedWorkload,
       };
 
       const response = editingId
@@ -79,8 +92,8 @@ function TeachersPage() {
       setTeachers(response.data);
       resetForm();
       showToast("success", editingId ? "Teacher updated successfully." : "Teacher created successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to save teacher. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to save teacher. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {
@@ -107,8 +120,8 @@ function TeachersPage() {
       await api.delete(`/teachers/${id}`);
       setTeachers(teachers.filter((teacher) => teacher.id !== id));
       showToast("success", "Teacher deleted successfully.");
-    } catch (err: any) {
-      const message = err?.response?.data?.message || "Unable to delete teacher. Please try again.";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Unable to delete teacher. Please try again.");
       setError(message);
       showToast("error", message);
     } finally {
