@@ -82,12 +82,13 @@ interface SchoolState {
 }
 
 const defaultSettings: SchoolSettings = {
-  schoolName: "State Board Government School",
+  schoolName: "My School",
+  academicYear: "",
   startTime: "08:45",
   endTime: "16:00",
   periodsPerDay: "8",
   periodDuration: "45",
-  workingDays: "Mon-Fri",
+  workingDays: "Mon,Tue,Wed,Thu,Fri",
   shortBreaks: "2",
   shortBreakDuration: "10",
   lunchDuration: "45",

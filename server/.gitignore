@@ -1,0 +1,5 @@
+
+# Local server files
+.env
+school.db
+logs/

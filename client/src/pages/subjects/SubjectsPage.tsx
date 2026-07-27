@@ -20,7 +20,8 @@ function SubjectsPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const subjects = useSchoolStore((state) => state.subjects);
   const setSubjects = useSchoolStore((state) => state.setSubjects);
@@ -96,13 +97,9 @@ function SubjectsPage() {
     setError("");
   };
 
-  const handleDeleteSubject = async (id: string) => {
-    if (!window.confirm("Delete this subject?")) {
-      return;
-    }
-
+  const confirmDeleteSubject = async (id: string) => {
     try {
-      setPendingDeleteId(id);
+      setDeletingId(id);
       await api.delete(`/subjects/${id}`);
       setSubjects(subjects.filter((subject) => subject.id !== id));
       showToast("success", "Subject deleted successfully.");
@@ -111,7 +108,8 @@ function SubjectsPage() {
       setError(message);
       showToast("error", message);
     } finally {
-      setPendingDeleteId(null);
+      setConfirmingDeleteId(null);
+      setDeletingId(null);
     }
   };
 
@@ -131,8 +129,16 @@ function SubjectsPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
-          <input value={subjectName} onChange={(e) => setSubjectName(e.target.value)} placeholder="Subject Name" className="rounded-xl border border-slate-200 p-3 focus:border-green-500 focus:outline-none" />
-          <input value={periodsPerWeek} onChange={(e) => setPeriodsPerWeek(e.target.value)} placeholder="Periods Per Week" className="rounded-xl border border-slate-200 p-3 focus:border-green-500 focus:outline-none" />
+          <div>
+            <label htmlFor="subject-name" className="block text-sm font-semibold text-slate-700 mb-1.5">Subject Name <span className="text-rose-500">*</span></label>
+            <input id="subject-name" value={subjectName} onChange={(e) => setSubjectName(e.target.value)} placeholder="e.g. Physics" className="w-full rounded-xl border border-slate-200 p-3 focus:border-green-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Display name shown on timetable reports.</p>
+          </div>
+          <div>
+            <label htmlFor="subject-periods" className="block text-sm font-semibold text-slate-700 mb-1.5">Periods Per Week <span className="text-rose-500">*</span></label>
+            <input id="subject-periods" type="number" min="1" max="50" value={periodsPerWeek} onChange={(e) => setPeriodsPerWeek(e.target.value)} placeholder="e.g. 5" className="w-full rounded-xl border border-slate-200 p-3 focus:border-green-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">How many times this subject is taught per week (1–50).</p>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -178,14 +184,25 @@ function SubjectsPage() {
                     <td className="px-3 py-3 text-slate-700">{subject.name}</td>
                     <td className="px-3 py-3 text-slate-700">{subject.periodsPerWeek}</td>
                     <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => startEdit(subject)} disabled={isSaving || pendingDeleteId === subject.id} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
-                          <PencilLine className="h-4 w-4" />Edit
-                        </button>
-                        <button onClick={() => handleDeleteSubject(subject.id)} disabled={isSaving || pendingDeleteId === subject.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
-                          {pendingDeleteId === subject.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Delete</>}
-                        </button>
-                      </div>
+                      {confirmingDeleteId === subject.id ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => confirmDeleteSubject(subject.id)} disabled={isSaving || deletingId === subject.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            {deletingId === subject.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Confirm Delete</>}
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(null)} disabled={!!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <X className="h-4 w-4" />Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => startEdit(subject)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <PencilLine className="h-4 w-4" />Edit
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(subject.id)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            <Trash2 className="h-4 w-4" />Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -24,7 +24,8 @@ function TeachersPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const teachers = useSchoolStore((state) => state.teachers);
   const setTeachers = useSchoolStore((state) => state.setTeachers);
@@ -110,13 +111,9 @@ function TeachersPage() {
     setError("");
   };
 
-  const handleDeleteTeacher = async (id: string) => {
-    if (!window.confirm("Delete this teacher record?")) {
-      return;
-    }
-
+  const confirmDeleteTeacher = async (id: string) => {
     try {
-      setPendingDeleteId(id);
+      setDeletingId(id);
       await api.delete(`/teachers/${id}`);
       setTeachers(teachers.filter((teacher) => teacher.id !== id));
       showToast("success", "Teacher deleted successfully.");
@@ -125,7 +122,8 @@ function TeachersPage() {
       setError(message);
       showToast("error", message);
     } finally {
-      setPendingDeleteId(null);
+      setConfirmingDeleteId(null);
+      setDeletingId(null);
     }
   };
 
@@ -145,10 +143,26 @@ function TeachersPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
-          <input value={teacherCode} onChange={(e) => setTeacherCode(e.target.value)} placeholder="Teacher Code" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
-          <input value={teacherName} onChange={(e) => setTeacherName(e.target.value)} placeholder="Teacher Name" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
-          <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
-          <input value={workload} onChange={(e) => setWorkload(e.target.value)} placeholder="Weekly Workload" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+          <div>
+            <label htmlFor="teacher-code" className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher Code <span className="text-rose-500">*</span></label>
+            <input id="teacher-code" value={teacherCode} onChange={(e) => setTeacherCode(e.target.value)} placeholder="e.g. T001" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Unique identifier for the teacher.</p>
+          </div>
+          <div>
+            <label htmlFor="teacher-name" className="block text-sm font-semibold text-slate-700 mb-1.5">Teacher Name <span className="text-rose-500">*</span></label>
+            <input id="teacher-name" value={teacherName} onChange={(e) => setTeacherName(e.target.value)} placeholder="e.g. Mrs. Sharma" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Full name as it should appear on timetables.</p>
+          </div>
+          <div>
+            <label htmlFor="teacher-subject" className="block text-sm font-semibold text-slate-700 mb-1.5">Primary Subject <span className="text-rose-500">*</span></label>
+            <input id="teacher-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Mathematics" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Subject the teacher is specialized in.</p>
+          </div>
+          <div>
+            <label htmlFor="teacher-workload" className="block text-sm font-semibold text-slate-700 mb-1.5">Weekly Workload <span className="text-rose-500">*</span></label>
+            <input id="teacher-workload" type="number" min="0" max="100" value={workload} onChange={(e) => setWorkload(e.target.value)} placeholder="e.g. 25" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Maximum teaching periods per week (0–100).</p>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -198,14 +212,25 @@ function TeachersPage() {
                     <td className="px-3 py-3 text-slate-700">{teacher.subject}</td>
                     <td className="px-3 py-3 text-slate-700">{teacher.workload}</td>
                     <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => startEdit(teacher)} disabled={isSaving || pendingDeleteId === teacher.id} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
-                          <PencilLine className="h-4 w-4" />Edit
-                        </button>
-                        <button onClick={() => handleDeleteTeacher(teacher.id)} disabled={isSaving || pendingDeleteId === teacher.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
-                          {pendingDeleteId === teacher.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Delete</>}
-                        </button>
-                      </div>
+                      {confirmingDeleteId === teacher.id ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => confirmDeleteTeacher(teacher.id)} disabled={isSaving || deletingId === teacher.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            {deletingId === teacher.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Confirm Delete</>}
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(null)} disabled={!!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <X className="h-4 w-4" />Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => startEdit(teacher)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <PencilLine className="h-4 w-4" />Edit
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(teacher.id)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            <Trash2 className="h-4 w-4" />Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

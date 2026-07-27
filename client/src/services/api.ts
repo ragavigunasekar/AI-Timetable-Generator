@@ -9,6 +9,8 @@ const BASE_URL =
 
 const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 30000,
+  withCredentials: false,
 });
 
 api.interceptors.request.use((config) => {
@@ -59,6 +61,20 @@ api.interceptors.response.use(
       if (pathname !== "/" && pathname !== "/register") {
         window.location.assign("/");
       }
+    } else if (!error?.response) {
+      if (error?.code === "ECONNABORTED") {
+        error._friendlyMessage = "Request timed out. The server is taking too long to respond.";
+      } else if (typeof navigator !== "undefined" && !navigator.onLine) {
+        error._friendlyMessage = "You appear to be offline. Please check your network connection.";
+      } else {
+        error._friendlyMessage = "Cannot connect to the server. Please try again later.";
+      }
+    } else if (error?.response?.status === 403) {
+      error._friendlyMessage = "You do not have permission to perform this action.";
+    } else if (error?.response?.status === 408 || error?.code === "ETIMEDOUT") {
+      error._friendlyMessage = "Server timed out. Please try again.";
+    } else if (error?.response?.status && error.response.status >= 500) {
+      error._friendlyMessage = "Something went wrong on our end. Please try again shortly.";
     }
     return Promise.reject(error);
   }

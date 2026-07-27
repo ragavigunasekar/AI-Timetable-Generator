@@ -1,27 +1,60 @@
 import bcrypt from "bcryptjs";
-import db from "../db.js";
+import db, { ensureDefaultSettings } from "../db.js";
 import logger from "../utils/logger.js";
 
-/**
- * Normalize an email address for storage and comparison.
- * @param {string} email
- * @returns {string}
- */
 export function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
-/**
- * Register a new user.
- * @param {string} email
- * @param {string} password
- * @returns {Promise<{ id: number, email: string, role: string }>}
- * @throws {Error} if email already exists
- */
+const PASSWORD_MIN_LENGTH = 8;
+
+export function validatePassword(password) {
+  if (!password || typeof password !== "string") {
+    return { valid: false, message: "Password is required" };
+  }
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return {
+      valid: false,
+      message: `Password must be at least ${PASSWORD_MIN_LENGTH} characters long`,
+    };
+  }
+  if (!/[a-z]/.test(password)) {
+    return {
+      valid: false,
+      message: "Password must contain at least one lowercase letter",
+    };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return {
+      valid: false,
+      message: "Password must contain at least one uppercase letter",
+    };
+  }
+  if (!/\d/.test(password)) {
+    return {
+      valid: false,
+      message: "Password must contain at least one number",
+    };
+  }
+  return { valid: true };
+}
+
 export async function registerUser(email, password) {
   const normalizedEmail = normalizeEmail(email);
 
-  // Check if email already exists
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    const error = new Error("A valid email address is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const pwCheck = validatePassword(password);
+  if (!pwCheck.valid) {
+    const error = new Error(pwCheck.message);
+    error.statusCode = 400;
+    throw error;
+  }
+
   const existing = await db.get("SELECT id FROM users WHERE email = ?", normalizedEmail);
   if (existing) {
     const error = new Error("An account with this email already exists.");
@@ -29,27 +62,32 @@ export async function registerUser(email, password) {
     throw error;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const result = await db.run(
-    "INSERT INTO users (email, passwordHash) VALUES (?, ?)",
+    "INSERT INTO users (email, passwordHash, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?)",
     normalizedEmail,
-    passwordHash
+    passwordHash,
+    "teacher",
+    new Date().toISOString(),
+    new Date().toISOString()
   );
 
-  logger.info(`User registered: ${normalizedEmail}`);
-  return { id: result.lastID, email: normalizedEmail, role: "teacher" };
+  const userId = result.lastID;
+  await ensureDefaultSettings(userId);
+
+  logger.info(`User registered: ${normalizedEmail} (id: ${userId})`);
+  return { id: userId, email: normalizedEmail, role: "teacher" };
 }
 
-/**
- * Authenticate a user by email and password.
- * @param {string} email
- * @param {string} password
- * @returns {Promise<{ id: number, email: string, role: string }>}
- * @throws {Error} if credentials are invalid
- */
 export async function authenticateUser(email, password) {
   const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail || !password) {
+    const error = new Error("Invalid credentials");
+    error.statusCode = 401;
+    throw error;
+  }
 
   const user = await db.get("SELECT * FROM users WHERE email = ?", normalizedEmail);
   if (!user) {
@@ -65,33 +103,36 @@ export async function authenticateUser(email, password) {
     throw error;
   }
 
-  logger.info(`User logged in: ${normalizedEmail}`);
+  await ensureDefaultSettings(user.id);
+
+  logger.info(`User logged in: ${normalizedEmail} (id: ${user.id})`);
   return { id: user.id, email: user.email, role: user.role };
 }
 
-/**
- * Get user profile by ID.
- * @param {number} userId
- * @returns {Promise<{ id: number, email: string, role: string }|null>}
- */
 export async function getUserProfile(userId) {
-  return db.get(
-    "SELECT id, email, role FROM users WHERE id = ?",
+  const user = await db.get(
+    "SELECT id, email, role, createdAt FROM users WHERE id = ?",
     userId
   );
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
 }
 
-/**
- * Update user email.
- * @param {number} userId
- * @param {string} newEmail
- * @returns {Promise<{ id: number, email: string, role: string }>}
- * @throws {Error} if email is invalid or taken
- */
 export async function updateUserEmail(userId, newEmail) {
   const normalizedEmail = normalizeEmail(newEmail);
 
-  // Check if email is taken by another user
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    const error = new Error("A valid email address is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
   const existing = await db.get(
     "SELECT id FROM users WHERE email = ? AND id != ?",
     normalizedEmail,
@@ -104,22 +145,15 @@ export async function updateUserEmail(userId, newEmail) {
   }
 
   await db.run(
-    "UPDATE users SET email = ? WHERE id = ?",
+    "UPDATE users SET email = ?, updatedAt = ? WHERE id = ?",
     normalizedEmail,
+    new Date().toISOString(),
     userId
   );
 
   return getUserProfile(userId);
 }
 
-/**
- * Change user password after verifying current password.
- * @param {number} userId
- * @param {string} currentPassword
- * @param {string} newPassword
- * @returns {Promise<void>}
- * @throws {Error} if current password is wrong
- */
 export async function changePassword(userId, currentPassword, newPassword) {
   const user = await db.get("SELECT passwordHash FROM users WHERE id = ?", userId);
   if (!user) {
@@ -135,16 +169,23 @@ export async function changePassword(userId, currentPassword, newPassword) {
     throw error;
   }
 
-  const newHash = await bcrypt.hash(newPassword, 10);
-  await db.run("UPDATE users SET passwordHash = ? WHERE id = ?", newHash, userId);
+  const pwCheck = validatePassword(newPassword);
+  if (!pwCheck.valid) {
+    const error = new Error(pwCheck.message);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await db.run(
+    "UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?",
+    newHash,
+    new Date().toISOString(),
+    userId
+  );
   logger.info(`Password changed for user ${userId}`);
 }
 
-/**
- * Delete user account.
- * @param {number} userId
- * @returns {Promise<void>}
- */
 export async function deleteUser(userId) {
   await db.run("DELETE FROM users WHERE id = ?", userId);
   logger.info(`User deleted: ${userId}`);

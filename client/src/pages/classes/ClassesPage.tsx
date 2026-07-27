@@ -20,7 +20,8 @@ function ClassesPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const classes = useSchoolStore((state) => state.classes);
   const setClasses = useSchoolStore((state) => state.setClasses);
@@ -90,13 +91,9 @@ function ClassesPage() {
     setError("");
   };
 
-  const handleDeleteClass = async (id: string) => {
-    if (!window.confirm("Delete this class?")) {
-      return;
-    }
-
+  const confirmDeleteClass = async (id: string) => {
     try {
-      setPendingDeleteId(id);
+      setDeletingId(id);
       await api.delete(`/classes/${id}`);
       setClasses(classes.filter((schoolClass) => schoolClass.id !== id));
       showToast("success", "Class deleted successfully.");
@@ -105,7 +102,8 @@ function ClassesPage() {
       setError(message);
       showToast("error", message);
     } finally {
-      setPendingDeleteId(null);
+      setConfirmingDeleteId(null);
+      setDeletingId(null);
     }
   };
 
@@ -125,8 +123,16 @@ function ClassesPage() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid gap-4 md:grid-cols-2">
-          <input value={className} onChange={(e) => setClassName(e.target.value)} placeholder="Class (6,7,8...)" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
-          <input value={section} onChange={(e) => setSection(e.target.value)} placeholder="Section (A,B,C)" className="rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+          <div>
+            <label htmlFor="class-name" className="block text-sm font-semibold text-slate-700 mb-1.5">Class Name <span className="text-rose-500">*</span></label>
+            <input id="class-name" value={className} onChange={(e) => setClassName(e.target.value)} placeholder="e.g. 6, 7, 8" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">The class grade or year level.</p>
+          </div>
+          <div>
+            <label htmlFor="class-section" className="block text-sm font-semibold text-slate-700 mb-1.5">Section <span className="text-rose-500">*</span></label>
+            <input id="class-section" value={section} onChange={(e) => setSection(e.target.value)} placeholder="e.g. A, B, C" className="w-full rounded-xl border border-slate-200 p-3 focus:border-blue-500 focus:outline-none" />
+            <p className="mt-1 text-xs text-slate-500">Section identifier for parallel classes.</p>
+          </div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -172,14 +178,25 @@ function ClassesPage() {
                     <td className="px-3 py-3 text-slate-700">{schoolClass.className}</td>
                     <td className="px-3 py-3 text-slate-700">{schoolClass.section}</td>
                     <td className="px-3 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => startEdit(schoolClass)} disabled={isSaving || pendingDeleteId === schoolClass.id} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
-                          <PencilLine className="h-4 w-4" />Edit
-                        </button>
-                        <button onClick={() => handleDeleteClass(schoolClass.id)} disabled={isSaving || pendingDeleteId === schoolClass.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
-                          {pendingDeleteId === schoolClass.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Delete</>}
-                        </button>
-                      </div>
+                      {confirmingDeleteId === schoolClass.id ? (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => confirmDeleteClass(schoolClass.id)} disabled={isSaving || deletingId === schoolClass.id} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            {deletingId === schoolClass.id ? "Deleting..." : <><Trash2 className="h-4 w-4" />Confirm Delete</>}
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(null)} disabled={!!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <X className="h-4 w-4" />Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => startEdit(schoolClass)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70">
+                            <PencilLine className="h-4 w-4" />Edit
+                          </button>
+                          <button onClick={() => setConfirmingDeleteId(schoolClass.id)} disabled={isSaving || !!deletingId} className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-70">
+                            <Trash2 className="h-4 w-4" />Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

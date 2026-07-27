@@ -1,5 +1,7 @@
 export interface SchoolSettings {
+  userId?: number;
   schoolName: string;
+  academicYear?: string;
 
   // School Timing
   startTime: string;
@@ -27,4 +29,8 @@ export interface SchoolSettings {
   // Advanced Break Support
   breakPositions?: string;
   breakDurations?: string;
+
+  // Timestamps
+  createdAt?: string;
+  updatedAt?: string;
 }

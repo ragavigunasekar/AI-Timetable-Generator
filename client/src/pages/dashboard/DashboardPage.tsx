@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSchoolStore } from "../../store/schoolStore";
+import api from "../../services/api";
+import { useToast } from "../../components/ui/ToastProvider";
+import { getApiErrorMessage } from "../../utils/errorUtils";
 import { 
   Users, 
   BookOpen, 
@@ -9,10 +13,13 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   XCircle,
-  HelpCircle
+  HelpCircle,
+  Loader2,
 } from "lucide-react";
 
 function DashboardPage() {
+  const { showToast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
   const teachers = useSchoolStore((state) => state.teachers);
   const subjects = useSchoolStore((state) => state.subjects);
   const classes = useSchoolStore((state) => state.classes);
@@ -20,6 +27,43 @@ function DashboardPage() {
   const generatedTimetable = useSchoolStore((state) => state.generatedTimetable);
   const conflicts = useSchoolStore((state) => state.conflicts);
   const healthScore = useSchoolStore((state) => state.timetableHealthScore);
+  const setInitialData = useSchoolStore((state) => state.setInitialData);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadInitial = async () => {
+      try {
+        setIsLoading(true);
+        const [settingsRes, teachersRes, subjectsRes, classesRes, allocationsRes] = await Promise.all([
+          api.get("/settings"),
+          api.get("/teachers"),
+          api.get("/subjects"),
+          api.get("/classes"),
+          api.get("/allocations"),
+        ]);
+        if (!cancelled) {
+          setInitialData({
+            schoolSettings: settingsRes.data,
+            teachers: teachersRes.data,
+            subjects: subjectsRes.data,
+            classes: classesRes.data,
+            allocations: allocationsRes.data,
+          });
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const message = getApiErrorMessage(err, "Failed to load dashboard overview.");
+          showToast("error", message);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+    loadInitial();
+    return () => { cancelled = true; };
+  }, [setInitialData, showToast]);
 
   const timetableExists = Object.keys(generatedTimetable).length > 0;
 
@@ -62,9 +106,20 @@ function DashboardPage() {
     healthBarColor = "bg-amber-500";
   }
 
+  if (isLoading && teachers.length === 0 && allocations.length === 0) {
+    return (
+      <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center py-24">
+        <div className="flex items-center gap-3 text-indigo-600">
+          <Loader2 className="w-7 h-7 animate-spin" />
+          <span className="font-semibold text-sm">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mb-8">Dashboard</h1>
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto animate-fade-in">
+      <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-8">Dashboard</h1>
 
       {/* Overview stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

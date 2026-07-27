@@ -7,12 +7,13 @@ import db from "../db.js";
 
 const router = Router();
 
-// ─────────────────────────────────────────────────────
-// Teachers
-// ─────────────────────────────────────────────────────
 const teachersCtrl = createResourceController("teachers", {
-  onDelete: async (id) => {
-    await db.run("UPDATE allocations SET teacherId = NULL WHERE teacherId = ?", id);
+  onDelete: async (id, userId) => {
+    await db.run(
+      "UPDATE allocations SET teacherId = NULL WHERE teacherId = ? AND userId = ?",
+      id,
+      userId
+    );
   },
 });
 
@@ -21,12 +22,13 @@ router.post("/teachers", authenticate, teacherValidation.create, createTeacher);
 router.put("/teachers/:id", authenticate, teacherValidation.update, updateTeacher);
 router.delete("/teachers/:id", authenticate, teachersCtrl.remove);
 
-// ─────────────────────────────────────────────────────
-// Subjects
-// ─────────────────────────────────────────────────────
 const subjectsCtrl = createResourceController("subjects", {
-  onDelete: async (id) => {
-    await db.run("DELETE FROM allocations WHERE subjectId = ?", id);
+  onDelete: async (id, userId) => {
+    await db.run(
+      "DELETE FROM allocations WHERE subjectId = ? AND userId = ?",
+      id,
+      userId
+    );
   },
 });
 
@@ -35,12 +37,13 @@ router.post("/subjects", authenticate, subjectValidation.create, subjectsCtrl.cr
 router.put("/subjects/:id", authenticate, subjectValidation.update, subjectsCtrl.update);
 router.delete("/subjects/:id", authenticate, subjectsCtrl.remove);
 
-// ─────────────────────────────────────────────────────
-// Classes
-// ─────────────────────────────────────────────────────
 const classesCtrl = createResourceController("classes", {
-  onDelete: async (id) => {
-    await db.run("DELETE FROM allocations WHERE classId = ?", id);
+  onDelete: async (id, userId) => {
+    await db.run(
+      "DELETE FROM allocations WHERE classId = ? AND userId = ?",
+      id,
+      userId
+    );
   },
 });
 
@@ -49,11 +52,8 @@ router.post("/classes", authenticate, classValidation.create, classesCtrl.create
 router.put("/classes/:id", authenticate, classValidation.update, classesCtrl.update);
 router.delete("/classes/:id", authenticate, classesCtrl.remove);
 
-// ─────────────────────────────────────────────────────
-// Allocations
-// ─────────────────────────────────────────────────────
 const allocationsCtrl = createResourceController("allocations", {
-  onDelete: async () => {}, // No cascading cleanup needed
+  onDelete: async () => {},
 });
 
 router.get("/allocations", authenticate, allocationsCtrl.list);

@@ -42,6 +42,8 @@ function ProfilePage() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -57,6 +59,7 @@ function ProfilePage() {
     } catch (err: unknown) {
       const message = getApiErrorMessage(err, "Failed to load profile");
       setError(message);
+      showToast("error", message);
     } finally {
       setLoading(false);
     }
@@ -71,7 +74,7 @@ function ProfilePage() {
     setSavingEmail(true);
     setError("");
     try {
-      const response = await api.put("/profile", { email: email.trim() });
+      const response = await api.put("/auth/profile", { email: email.trim() });
       setProfile(response.data);
       showToast("success", "Email updated successfully.");
     } catch (err: unknown) {
@@ -83,6 +86,14 @@ function ProfilePage() {
     }
   };
 
+  const validatePassword = (p: string): { valid: boolean; message: string } => {
+    if (p.length < 8) return { valid: false, message: "At least 8 characters" };
+    if (!/[a-z]/.test(p)) return { valid: false, message: "Needs one lowercase letter" };
+    if (!/[A-Z]/.test(p)) return { valid: false, message: "Needs one uppercase letter" };
+    if (!/\d/.test(p)) return { valid: false, message: "Needs one digit" };
+    return { valid: true, message: "Password is strong." };
+  };
+
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess("");
@@ -92,8 +103,9 @@ function ProfilePage() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setPasswordError("New password must be at least 8 characters.");
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      setPasswordError(`New password is invalid: ${passwordCheck.message}.`);
       return;
     }
 
@@ -104,7 +116,7 @@ function ProfilePage() {
 
     setSavingPassword(true);
     try {
-      await api.put("/profile/password", {
+      await api.put("/auth/profile/password", {
         currentPassword,
         newPassword,
       });
@@ -123,17 +135,17 @@ function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-      return;
-    }
-
     try {
-      await api.delete("/profile");
+      setDeletingAccount(true);
+      await api.delete("/auth/profile");
       showToast("info", "Account deleted.");
       logout();
     } catch (err: unknown) {
       const message = getApiErrorMessage(err, "Failed to delete account.");
       showToast("error", message);
+    } finally {
+      setDeletingAccount(false);
+      setConfirmingDelete(false);
     }
   };
 
@@ -186,13 +198,19 @@ function ProfilePage() {
         <div className="border-t border-slate-100 pt-6">
           <h3 className="text-sm font-bold text-slate-700 mb-4">Update Email</h3>
           <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-200 p-3 text-sm focus:border-indigo-500 focus:outline-none"
-              placeholder="New email address"
-            />
+            <div className="flex-1">
+              <label htmlFor="profile-email" className="block text-sm font-semibold text-slate-700 mb-1.5">Email Address <span className="text-rose-500">*</span></label>
+              <input
+                id="profile-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-indigo-500 focus:outline-none"
+                placeholder="you@school.edu"
+                autoComplete="email"
+              />
+              <p className="mt-1 text-xs text-slate-500">We never share your email with third parties.</p>
+            </div>
             <button
               onClick={handleUpdateEmail}
               disabled={savingEmail}
@@ -230,46 +248,73 @@ function ProfilePage() {
 
         <div className="space-y-4">
           <div className="relative">
-            <input
-              type={showCurrent ? "text" : "password"}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-3 text-sm pr-10 focus:border-indigo-500 focus:outline-none"
-              placeholder="Current Password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrent(!showCurrent)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+            <label htmlFor="current-password" className="block text-sm font-semibold text-slate-700 mb-1.5">Current Password <span className="text-rose-500">*</span></label>
+            <div className="relative">
+              <input
+                id="current-password"
+                type={showCurrent ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm pr-10 focus:border-indigo-500 focus:outline-none"
+                placeholder="Enter your current password"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent(!showCurrent)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label={showCurrent ? "Hide password" : "Show password"}
+              >
+                {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="relative">
-            <input
-              type={showNew ? "text" : "password"}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 p-3 text-sm pr-10 focus:border-indigo-500 focus:outline-none"
-              placeholder="New Password (min 8 characters)"
-            />
-            <button
-              type="button"
-              onClick={() => setShowNew(!showNew)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+            <label htmlFor="new-password" className="block text-sm font-semibold text-slate-700 mb-1.5">New Password <span className="text-rose-500">*</span></label>
+            <div className="relative">
+              <input
+                id="new-password"
+                type={showNew ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 p-3 text-sm pr-10 focus:border-indigo-500 focus:outline-none"
+                placeholder="Create a strong password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                aria-label={showNew ? "Hide password" : "Show password"}
+              >
+                {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-indigo-500 focus:outline-none"
-            placeholder="Confirm New Password"
-          />
+          <div>
+            <label htmlFor="confirm-password" className="block text-sm font-semibold text-slate-700 mb-1.5">Confirm New Password <span className="text-rose-500">*</span></label>
+            <input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:border-indigo-500 focus:outline-none"
+              placeholder="Re-enter the new password"
+              autoComplete="new-password"
+            />
+          </div>
+
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs space-y-1">
+            <p className="font-bold text-amber-900 mb-1">Password requirements:</p>
+            <ul className="space-y-0.5 text-amber-800 pl-4 list-disc">
+              <li>At least 8 characters long</li>
+              <li>One lowercase letter (a–z)</li>
+              <li>One uppercase letter (A–Z)</li>
+              <li>One digit (0–9)</li>
+            </ul>
+          </div>
 
           <button
             onClick={handleChangePassword}
@@ -286,14 +331,33 @@ function ProfilePage() {
       <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-6">
         <h2 className="text-lg font-bold text-red-700 mb-4">Danger Zone</h2>
         <p className="text-sm text-slate-500 mb-4">
-          Deleting your account is irreversible. All your data will be permanently removed.
+          Deleting your account is irreversible. All your teachers, subjects, classes, allocations, timetables and settings will be permanently removed.
         </p>
-        <button
-          onClick={handleDeleteAccount}
-          className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition text-sm"
-        >
-          Delete Account
-        </button>
+        {confirmingDelete ? (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition text-sm disabled:opacity-70"
+            >
+              {deletingAccount ? "Deleting Account..." : "Yes, Permanently Delete My Account"}
+            </button>
+            <button
+              onClick={() => setConfirmingDelete(false)}
+              disabled={deletingAccount}
+              className="rounded-xl border border-slate-200 px-6 py-3 font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-70 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmingDelete(true)}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition text-sm"
+          >
+            Delete Account
+          </button>
+        )}
       </div>
     </div>
   );

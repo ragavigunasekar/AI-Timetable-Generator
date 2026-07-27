@@ -5,11 +5,12 @@ import logger from "../utils/logger.js";
 
 const router = Router();
 
-// GET /api/timetables - List all saved timetables
 router.get("/", authenticate, async (req, res) => {
   try {
+    const userId = req.user.id;
     const timetables = await db.all(
-      "SELECT id, timetableData, createdAt, updatedAt FROM timetables ORDER BY updatedAt DESC"
+      "SELECT id, userId, name, timetableData, createdAt, updatedAt FROM timetables WHERE userId = ? ORDER BY updatedAt DESC",
+      userId
     );
     return res.json({ success: true, data: timetables });
   } catch (error) {
@@ -18,12 +19,13 @@ router.get("/", authenticate, async (req, res) => {
   }
 });
 
-// GET /api/timetables/:id - Get a specific timetable
 router.get("/:id", authenticate, async (req, res) => {
   try {
+    const userId = req.user.id;
     const timetable = await db.get(
-      "SELECT id, timetableData, createdAt, updatedAt FROM timetables WHERE id = ?",
-      req.params.id
+      "SELECT id, userId, name, timetableData, createdAt, updatedAt FROM timetables WHERE id = ? AND userId = ?",
+      req.params.id,
+      userId
     );
     if (!timetable) {
       return res.status(404).json({ success: false, message: "Timetable not found" });
@@ -35,56 +37,75 @@ router.get("/:id", authenticate, async (req, res) => {
   }
 });
 
-// POST /api/timetables - Save a new timetable
 router.post("/", authenticate, async (req, res) => {
   try {
-    const { id, timetableData } = req.body;
+    const userId = req.user.id;
+    const { id, timetableData, name } = req.body;
     if (!id || !timetableData) {
-      return res.status(400).json({ success: false, message: "id and timetableData are required" });
+      return res.status(400).json({
+        success: false,
+        message: "id and timetableData are required",
+      });
     }
 
-    // Check if timetable already exists
-    const existing = await db.get("SELECT id FROM timetables WHERE id = ?", String(id));
+    const existing = await db.get(
+      "SELECT id FROM timetables WHERE id = ? AND userId = ?",
+      String(id),
+      userId
+    );
     if (existing) {
-      return res.status(409).json({ success: false, message: "A timetable with this ID already exists" });
+      return res
+        .status(409)
+        .json({ success: false, message: "A timetable with this ID already exists" });
     }
 
     const now = new Date().toISOString();
     await db.run(
-      "INSERT INTO timetables (id, timetableData, createdAt, updatedAt) VALUES (?, ?, ?, ?)",
+      "INSERT INTO timetables (id, userId, name, timetableData, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
       String(id),
+      userId,
+      name || "Untitled Timetable",
       typeof timetableData === "string" ? timetableData : JSON.stringify(timetableData),
       now,
       now
     );
 
     const timetable = await db.get(
-      "SELECT id, timetableData, createdAt, updatedAt FROM timetables WHERE id = ?",
-      String(id)
+      "SELECT id, userId, name, timetableData, createdAt, updatedAt FROM timetables WHERE id = ? AND userId = ?",
+      String(id),
+      userId
     );
 
-    logger.info(`Timetable saved: ${id}`);
+    logger.info(`Timetable saved: ${id} (user: ${userId})`);
     return res.status(201).json({ success: true, data: timetable });
   } catch (error) {
     logger.error(`Failed to save timetable: ${error.message}`);
-    return res.status(400).json({ success: false, message: error.message || "Failed to save timetable" });
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to save timetable",
+    });
   }
 });
 
-// PUT /api/timetables/:id - Update an existing timetable
 router.put("/:id", authenticate, async (req, res) => {
   try {
-    const { timetableData } = req.body;
+    const userId = req.user.id;
+    const { timetableData, name } = req.body;
     if (!timetableData) {
-      return res.status(400).json({ success: false, message: "timetableData is required" });
+      return res.status(400).json({
+        success: false,
+        message: "timetableData is required",
+      });
     }
 
     const now = new Date().toISOString();
     const result = await db.run(
-      "UPDATE timetables SET timetableData = ?, updatedAt = ? WHERE id = ?",
+      "UPDATE timetables SET timetableData = ?, name = COALESCE(?, name), updatedAt = ? WHERE id = ? AND userId = ?",
       typeof timetableData === "string" ? timetableData : JSON.stringify(timetableData),
+      name || null,
       now,
-      req.params.id
+      req.params.id,
+      userId
     );
 
     if (result.changes === 0) {
@@ -92,30 +113,41 @@ router.put("/:id", authenticate, async (req, res) => {
     }
 
     const timetable = await db.get(
-      "SELECT id, timetableData, createdAt, updatedAt FROM timetables WHERE id = ?",
-      req.params.id
+      "SELECT id, userId, name, timetableData, createdAt, updatedAt FROM timetables WHERE id = ? AND userId = ?",
+      req.params.id,
+      userId
     );
 
-    logger.info(`Timetable updated: ${req.params.id}`);
+    logger.info(`Timetable updated: ${req.params.id} (user: ${userId})`);
     return res.json({ success: true, data: timetable });
   } catch (error) {
     logger.error(`Failed to update timetable: ${error.message}`);
-    return res.status(400).json({ success: false, message: error.message || "Failed to update timetable" });
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to update timetable",
+    });
   }
 });
 
-// DELETE /api/timetables/:id
 router.delete("/:id", authenticate, async (req, res) => {
   try {
-    const result = await db.run("DELETE FROM timetables WHERE id = ?", req.params.id);
+    const userId = req.user.id;
+    const result = await db.run(
+      "DELETE FROM timetables WHERE id = ? AND userId = ?",
+      req.params.id,
+      userId
+    );
     if (result.changes === 0) {
       return res.status(404).json({ success: false, message: "Timetable not found" });
     }
-    logger.info(`Timetable deleted: ${req.params.id}`);
+    logger.info(`Timetable deleted: ${req.params.id} (user: ${userId})`);
     return res.json({ success: true, data: { deleted: true } });
   } catch (error) {
     logger.error(`Failed to delete timetable: ${error.message}`);
-    return res.status(500).json({ success: false, message: error.message || "Failed to delete timetable" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to delete timetable",
+    });
   }
 });
 
