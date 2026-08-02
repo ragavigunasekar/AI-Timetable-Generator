@@ -97,3 +97,39 @@ test('produces different timetables for different random seeds', () => {
 
   assert.notDeepEqual(first.timetable, second.timetable);
 });
+
+test('respects teacher availability when placing lessons', () => {
+  const input = {
+    allocations: [
+      { id: 'a1', classId: 'c1', subjectId: 's1', teacherId: 't1', periods: 2 },
+    ],
+    teachers: [
+      { id: 't1', name: 'Alice', subject: 'Maths', workload: '3', availability: 'Mon,Tue' },
+    ],
+    subjects: [{ id: 's1', name: 'Mathematics' }],
+    classes: [{ id: 'c1', className: 'Grade 6', section: 'A' }],
+    settings: {
+      workingDays: 'Mon-Fri',
+      periodsPerDay: '3',
+      lunchDuration: '0',
+      assemblyPeriod: '0',
+      prayerPeriod: '0',
+    },
+  };
+
+  const result = generateOptimizedTimetable(input, { candidateCount: 4, localSearchRounds: 3, randomSeed: 7 });
+  const usedDays = new Set();
+
+  for (const [day, periods] of Object.entries(result.timetable)) {
+    for (const [period, entries] of Object.entries(periods)) {
+      for (const entry of entries) {
+        if (!entry.locked && entry.teacher === 'Alice') {
+          usedDays.add(day);
+        }
+      }
+    }
+  }
+
+  assert.ok(usedDays.size <= 2, 'Alice should not be scheduled outside her availability');
+  assert.ok(!usedDays.has('Wed'), 'Alice should not appear on Wednesday');
+});

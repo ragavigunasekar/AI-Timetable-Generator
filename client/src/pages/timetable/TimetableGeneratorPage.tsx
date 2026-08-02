@@ -606,9 +606,37 @@ function TimetableGeneratorPage() {
     return arr;
   }, [present, days, periodsPerDay]);
 
-  const teacherCount = new Set(allEntries.map((e) => e.teacher)).size;
-  const classCount = new Set(allEntries.map((e) => e.className)).size;
-  const subjectCount = new Set(allEntries.map((e) => e.subject)).size;
+  const plannerMetrics = useMemo(() => {
+    const scheduledLessons = allEntries.length;
+    const activeTeachers = new Set(allEntries.map((entry) => entry.teacher).filter((value): value is string => Boolean(value && value !== "Unassigned"))).size;
+    const activeClasses = new Set(allEntries.map((entry) => entry.className).filter(Boolean)).size;
+    const activeSubjects = new Set(allEntries.map((entry) => entry.subject).filter(Boolean)).size;
+    const totalCapacity = days.length * periodsPerDay;
+    const occupancy = totalCapacity > 0 ? Math.round((scheduledLessons / totalCapacity) * 100) : 0;
+    const issueCount = Object.keys(conflictMap).length + unplacedAllocations.length;
+
+    const healthLabel = issueCount === 0 && scheduledLessons > 0 ? "Healthy" : issueCount > 0 ? "Needs attention" : "Draft";
+    const healthTone = issueCount === 0 && scheduledLessons > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : issueCount > 0 ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-700 border-slate-200";
+    const recommendation = issueCount > 0
+      ? issueCount === 1
+        ? "Resolve the highlighted issue to keep the planner coherent."
+        : "Resolve the highlighted conflicts and unplaced lessons to strengthen the timetable."
+      : scheduledLessons > 0
+        ? "The timetable is looking balanced. You can refine it further by dragging lessons between slots."
+        : "Generate or load a timetable to start reviewing the weekly plan.";
+
+    return {
+      scheduledLessons,
+      activeTeachers,
+      activeClasses,
+      activeSubjects,
+      occupancy,
+      issueCount,
+      healthLabel,
+      healthTone,
+      recommendation,
+    };
+  }, [allEntries, conflictMap, days.length, periodsPerDay, unplacedAllocations]);
 
   // ─── Export ───────────────────────────────────────────────────────────────
   const buildCellDisplay = (entries: StoreTimetableEntry[]): string =>
@@ -833,6 +861,50 @@ function TimetableGeneratorPage() {
         </div>
       )}
 
+      <div className="mb-5 grid gap-4 lg:grid-cols-[1.7fr_1fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Planning snapshot</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-800">Weekly timetable health</h2>
+              <p className="mt-1 text-sm text-slate-500">A clearer read on how much of the week is filled and what still needs attention.</p>
+            </div>
+            <span className={`rounded-full border px-3 py-1 text-sm font-medium ${plannerMetrics.healthTone}`}>
+              {plannerMetrics.healthLabel}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl bg-slate-50 p-3">
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Scheduled lessons</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{plannerMetrics.scheduledLessons}</div>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-3">
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Active teachers</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{plannerMetrics.activeTeachers}</div>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-3">
+              <div className="text-xs uppercase tracking-[0.2xl] text-slate-400">Active classes</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{plannerMetrics.activeClasses}</div>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-3">
+              <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Occupancy</div>
+              <div className="mt-2 text-2xl font-semibold text-slate-800">{plannerMetrics.occupancy}%</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-slate-900 p-5 text-slate-50 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">Recommended next step</p>
+          <p className="mt-2 text-base leading-6 text-slate-200">{plannerMetrics.recommendation}</p>
+          <div className="mt-4 flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full bg-white/10 px-3 py-1">{Object.keys(conflictMap).length} conflict(s)</span>
+            <span className="rounded-full bg-white/10 px-3 py-1">{unplacedAllocations.length} unplaced lesson(s)</span>
+            <span className="rounded-full bg-white/10 px-3 py-1">{plannerMetrics.activeSubjects} subjects in play</span>
+          </div>
+        </div>
+      </div>
+
       {/* Conflict Summary */}
       {Object.keys(conflictMap).length > 0 && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
@@ -905,19 +977,19 @@ function TimetableGeneratorPage() {
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="rounded-2xl border bg-white p-4">
           <div className="text-sm text-slate-500">Teachers</div>
-          <div className="mt-2 text-3xl font-bold">{teacherCount}</div>
+          <div className="mt-2 text-3xl font-bold">{plannerMetrics.activeTeachers}</div>
         </div>
         <div className="rounded-2xl border bg-white p-4">
           <div className="text-sm text-slate-500">Classes</div>
-          <div className="mt-2 text-3xl font-bold">{classCount}</div>
+          <div className="mt-2 text-3xl font-bold">{plannerMetrics.activeClasses}</div>
         </div>
         <div className="rounded-2xl border bg-white p-4">
           <div className="text-sm text-slate-500">Subjects</div>
-          <div className="mt-2 text-3xl font-bold">{subjectCount}</div>
+          <div className="mt-2 text-3xl font-bold">{plannerMetrics.activeSubjects}</div>
         </div>
         <div className="rounded-2xl border bg-white p-4">
           <div className="text-sm text-slate-500">Total Slots</div>
-          <div className="mt-2 text-3xl font-bold">{allEntries.length}</div>
+          <div className="mt-2 text-3xl font-bold">{plannerMetrics.scheduledLessons}</div>
         </div>
       </div>
 
