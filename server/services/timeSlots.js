@@ -25,11 +25,10 @@ function toTime(minutes) {
 }
 
 export function buildTimeSlots(settings) {
-  const start = toMinutes(settings.startTime);
-
+  const start = toMinutes(settings.startTime || '08:00');
+  const end = toMinutes(settings.endTime || '15:00');
   const periodDuration = Number(settings.periodDuration) || 45;
   const periodsPerDay = Number(settings.periodsPerDay) || 8;
-
   const lunchDuration = Number(settings.lunchDuration) || 45;
   const lunchPosition = Number(settings.lunchPosition) || 5;
 
@@ -42,21 +41,53 @@ export function buildTimeSlots(settings) {
     .split(",")
     .map((x) => Number(x.trim()));
 
-  let current = start;
+  const timelineEvents = Array.isArray(settings.timelineEvents)
+    ? settings.timelineEvents.filter(Boolean)
+    : [];
 
+  let current = start;
   const slots = [];
+
+  const pushFixedEvent = (event) => {
+    if (!event?.name || !event?.startTime || !event?.endTime) return;
+    const startTime = toMinutes(event.startTime);
+    const endTime = toMinutes(event.endTime);
+    if (startTime < current || endTime <= startTime) return;
+    if (startTime > end) return;
+    slots.push({
+      type: 'fixed',
+      label: event.name,
+      start: toTime(startTime),
+      end: toTime(endTime),
+      eventType: event.type || 'custom',
+      source: 'timeline',
+    });
+  };
+
+  timelineEvents.forEach(pushFixedEvent);
+
+  const fixedRanges = timelineEvents
+    .filter((event) => event?.startTime && event?.endTime)
+    .map((event) => ({
+      start: toMinutes(event.startTime),
+      end: toTime ? toMinutes(event.endTime) : toMinutes(event.endTime),
+    }));
+
+  const isWithinFixedRange = (candidateStart, candidateEnd) => fixedRanges.some((range) => candidateStart < range.end && candidateEnd > range.start);
 
   for (let period = 1; period <= periodsPerDay; period++) {
     const startTime = current;
     const endTime = current + periodDuration;
 
-    slots.push({
-      type: "PERIOD",
-      period,
-      start: toTime(startTime),
-      end: toTime(endTime),
-      label: `Period ${period}`,
-    });
+    if (endTime <= end && !isWithinFixedRange(startTime, endTime)) {
+      slots.push({
+        type: 'teaching',
+        period,
+        start: toTime(startTime),
+        end: toTime(endTime),
+        label: `Teaching Slot ${period}`,
+      });
+    }
 
     current = endTime;
 
@@ -64,26 +95,35 @@ export function buildTimeSlots(settings) {
 
     if (breakIndex !== -1) {
       const duration = breakDurations[breakIndex] || 10;
-
-      slots.push({
-        type: "BREAK",
-        start: toTime(current),
-        end: toTime(current + duration),
-        label: "Short Break",
-      });
-
-      current += duration;
+      const breakStart = current;
+      const breakEnd = breakStart + duration;
+      if (breakEnd <= end && !isWithinFixedRange(breakStart, breakEnd)) {
+        slots.push({
+          type: 'fixed',
+          start: toTime(breakStart),
+          end: toTime(breakEnd),
+          label: 'Short Break',
+          eventType: 'break',
+          source: 'legacy',
+        });
+      }
+      current = breakEnd;
     }
 
     if (period === lunchPosition) {
-      slots.push({
-        type: "LUNCH",
-        start: toTime(current),
-        end: toTime(current + lunchDuration),
-        label: "Lunch",
-      });
-
-      current += lunchDuration;
+      const lunchStart = current;
+      const lunchEnd = lunchStart + lunchDuration;
+      if (lunchEnd <= end && !isWithinFixedRange(lunchStart, lunchEnd)) {
+        slots.push({
+          type: 'fixed',
+          start: toTime(lunchStart),
+          end: toTime(lunchEnd),
+          label: 'Lunch',
+          eventType: 'lunch',
+          source: 'legacy',
+        });
+      }
+      current = lunchEnd;
     }
   }
 

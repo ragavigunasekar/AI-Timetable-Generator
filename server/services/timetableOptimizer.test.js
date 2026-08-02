@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateOptimizedTimetable } from './timetableOptimizer.js';
+import { buildTimeSlots } from './timeSlots.js';
 
 function createSampleInput() {
   return {
@@ -82,6 +83,24 @@ function assertConstraints(result) {
 
   assert.equal(result.meta.totalAssignments, result.meta.requiredPeriods);
 }
+
+test('builds teaching slots from timeline events and preserves fixed events', () => {
+  const settings = {
+    startTime: '08:00',
+    endTime: '15:00',
+    periodDuration: '45',
+    timelineEvents: [
+      { name: 'Assembly', type: 'assembly', startTime: '08:00', endTime: '08:20' },
+      { name: 'Prayer', type: 'prayer', startTime: '08:20', endTime: '08:25' },
+      { name: 'Lunch', type: 'lunch', startTime: '12:00', endTime: '12:30' },
+    ],
+  };
+
+  const slots = buildTimeSlots(settings);
+  assert.ok(slots.some((slot) => slot.type === 'fixed' && slot.label === 'Assembly'));
+  assert.ok(slots.some((slot) => slot.type === 'fixed' && slot.label === 'Lunch'));
+  assert.ok(slots.some((slot) => slot.type === 'teaching'));
+});
 
 test('generates a conflict-free timetable that satisfies workload and lunch constraints', () => {
   const input = createSampleInput();

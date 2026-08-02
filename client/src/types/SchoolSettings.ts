@@ -30,6 +30,14 @@ export interface SchoolSettings {
   breakPositions?: string;
   breakDurations?: string;
 
+  // Timeline scheduling
+  timelineEvents?: Array<{
+    name: string;
+    type: string;
+    startTime: string;
+    endTime: string;
+  }>;
+
   // Timestamps
   createdAt?: string;
   updatedAt?: string;

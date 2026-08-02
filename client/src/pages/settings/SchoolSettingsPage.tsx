@@ -8,6 +8,8 @@ import {
   Save,
   GraduationCap,
   Coffee,
+  PlusCircle,
+  Trash2,
 } from "lucide-react";
 import api from "../../services/api";
 import { useSchoolStore } from "../../store/schoolStore";
@@ -84,6 +86,7 @@ function SchoolSettingsPage() {
     prayerPeriod: "",
     breakPositions: "",
     breakDurations: "",
+    timelineEvents: [],
   });
 
   const [message, setMessage] = useState("");
@@ -114,6 +117,8 @@ function SchoolSettingsPage() {
     ? settings.workingDays.split(",").map((d) => d.trim())
     : [];
 
+  const timelineEvents = Array.isArray(settings.timelineEvents) ? settings.timelineEvents : [];
+
   const toggleDay = (day: string) => {
     let updated: string[];
     if (selectedDays.includes(day)) {
@@ -123,6 +128,31 @@ function SchoolSettingsPage() {
     }
     const ordered = allDays.filter((d) => updated.includes(d));
     setSettings({ ...settings, workingDays: ordered.join(",") });
+  };
+
+  const updateTimelineEvent = (
+    index: number,
+    field: "name" | "type" | "startTime" | "endTime",
+    value: string
+  ) => {
+    const nextEvents = [...timelineEvents];
+    nextEvents[index] = { ...nextEvents[index], [field]: value };
+    setSettings({ ...settings, timelineEvents: nextEvents });
+  };
+
+  const addTimelineEvent = () => {
+    setSettings({
+      ...settings,
+      timelineEvents: [
+        ...timelineEvents,
+        { name: "", type: "custom", startTime: "", endTime: "" },
+      ],
+    });
+  };
+
+  const removeTimelineEvent = (index: number) => {
+    const nextEvents = timelineEvents.filter((_, eventIndex) => eventIndex !== index);
+    setSettings({ ...settings, timelineEvents: nextEvents });
   };
 
   const handleSave = async () => {
@@ -519,6 +549,98 @@ function SchoolSettingsPage() {
                     </HelperText>
                   </div>
                 </div>
+              </div>
+
+              {/* Timeline Events */}
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <CardHeader
+                    icon={Clock3}
+                    title="Daily Timeline Events"
+                    subtitle="Reserve fixed blocks such as assembly, prayer, lunch, lab, library, or other daily activities."
+                  />
+                  <button
+                    type="button"
+                    onClick={addTimelineEvent}
+                    className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                  >
+                    <PlusCircle size={16} />
+                    Add Event
+                  </button>
+                </div>
+
+                {timelineEvents.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                    No fixed events yet. Add a daily block to give the scheduler a more realistic school day structure.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {timelineEvents.map((event, index) => (
+                      <div
+                        key={`${event.name || "event"}-${index}`}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <div>
+                              <FieldLabel htmlFor={`timeline-name-${index}`}>Event Name</FieldLabel>
+                              <input
+                                id={`timeline-name-${index}`}
+                                type="text"
+                                value={event.name}
+                                onChange={(e) => updateTimelineEvent(index, "name", e.target.value)}
+                                placeholder="Assembly"
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                              />
+                            </div>
+                            <div>
+                              <FieldLabel htmlFor={`timeline-type-${index}`}>Event Type</FieldLabel>
+                              <input
+                                id={`timeline-type-${index}`}
+                                type="text"
+                                value={event.type}
+                                onChange={(e) => updateTimelineEvent(index, "type", e.target.value)}
+                                placeholder="assembly"
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                              />
+                            </div>
+                            <div>
+                              <FieldLabel htmlFor={`timeline-start-${index}`}>Start Time</FieldLabel>
+                              <input
+                                id={`timeline-start-${index}`}
+                                type="time"
+                                value={event.startTime}
+                                onChange={(e) => updateTimelineEvent(index, "startTime", e.target.value)}
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                              />
+                            </div>
+                            <div>
+                              <FieldLabel htmlFor={`timeline-end-${index}`}>End Time</FieldLabel>
+                              <input
+                                id={`timeline-end-${index}`}
+                                type="time"
+                                value={event.endTime}
+                                onChange={(e) => updateTimelineEvent(index, "endTime", e.target.value)}
+                                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeTimelineEvent(index)}
+                            className="rounded-xl border border-rose-200 p-2.5 text-rose-600 transition hover:bg-rose-50"
+                            aria-label={`Remove ${event.name || "event"}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <HelperText>
+                  Fixed events are reserved in the daily schedule and teaching periods are derived around them.
+                </HelperText>
               </div>
 
               {/* Save Action */}

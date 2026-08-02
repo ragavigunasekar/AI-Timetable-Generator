@@ -4,6 +4,20 @@ import { settingsValidation } from "../middleware/validator.js";
 import db, { ensureDefaultSettings } from "../db.js";
 import logger from "../utils/logger.js";
 
+function normalizeTimelineEvents(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 const router = Router();
 
 router.get("/", authenticate, async (req, res) => {
@@ -17,7 +31,13 @@ router.get("/", authenticate, async (req, res) => {
     if (!settings) {
       return res.status(404).json({ success: false, message: "Settings not found" });
     }
-    return res.json({ success: true, data: settings });
+    return res.json({
+      success: true,
+      data: {
+        ...settings,
+        timelineEvents: normalizeTimelineEvents(settings.timelineEvents),
+      },
+    });
   } catch (error) {
     logger.error(`Failed to fetch settings: ${error.message}`);
     return res.status(500).json({ success: false, message: "Failed to fetch settings" });
@@ -43,6 +63,7 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       breakPositions,
       breakDurations,
       academicYear,
+      timelineEvents,
     } = req.body;
 
     await ensureDefaultSettings(userId);
@@ -64,6 +85,7 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
            breakPositions = ?,
            breakDurations = ?,
            academicYear = ?,
+           timelineEvents = ?,
            updatedAt = ?
        WHERE userId = ?`,
       schoolName,
@@ -81,6 +103,7 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       breakPositions,
       breakDurations,
       academicYear ?? "",
+      JSON.stringify(normalizeTimelineEvents(timelineEvents)),
       new Date().toISOString(),
       userId
     );
@@ -90,7 +113,13 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       userId
     );
     logger.info(`School settings updated for user: ${userId}`);
-    return res.json({ success: true, data: settings });
+    return res.json({
+      success: true,
+      data: {
+        ...settings,
+        timelineEvents: normalizeTimelineEvents(settings.timelineEvents),
+      },
+    });
   } catch (error) {
     logger.error(`Failed to update settings: ${error.message}`);
     return res.status(400).json({

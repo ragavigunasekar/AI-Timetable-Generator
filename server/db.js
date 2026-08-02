@@ -87,6 +87,7 @@ const TABLE_CREATORS = {
     breakPositions TEXT,
     breakDurations TEXT,
     academicYear TEXT,
+    timelineEvents TEXT,
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
@@ -160,6 +161,7 @@ const TABLE_COLUMNS = {
     breakPositions: "TEXT",
     breakDurations: "TEXT",
     academicYear: "TEXT",
+    timelineEvents: "TEXT",
     createdAt: "TEXT DEFAULT (datetime('now'))",
     updatedAt: "TEXT DEFAULT (datetime('now'))",
   },
