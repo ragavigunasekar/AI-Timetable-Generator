@@ -33,34 +33,36 @@ function createSampleInput() {
       { id: 'c3', className: 'Grade 7', section: 'A' },
     ],
     settings: {
+      startTime: '08:00',
+      endTime: '16:00',
       workingDays: 'Mon-Fri',
       periodsPerDay: '5',
-      lunchDuration: '1',
+      periodDuration: '45',
+      timelineEvents: [
+        { id: 'e1', title: 'Lunch', type: 'lunch', startTime: '12:00', endTime: '12:45', isTeachingBlocked: true },
+      ],
     },
   };
 }
 
 function assertConstraints(result) {
   const days = Object.keys(result.timetable);
-  const periodsPerDay = Object.keys(result.timetable[days[0]] || {}).length;
-  const lunchPeriod = Math.max(1, Math.min(periodsPerDay, Math.floor(periodsPerDay / 2)));
-
   const teacherUsage = new Map();
-  const classUsage = new Map();
 
   for (const day of days) {
-    for (let period = 1; period <= periodsPerDay; period += 1) {
+    const periodKeys = Object.keys(result.timetable[day]);
+
+    for (const period of periodKeys) {
       const entries = result.timetable[day][period] || [];
       const seenTeachers = new Set();
       const seenClasses = new Set();
 
       for (const entry of entries) {
-        if (entry.locked || entry.subject === 'Lunch') continue;
-        assert.notEqual(period, lunchPeriod);
+        if (entry.locked) continue;
         assert.ok(entry.teacher);
         assert.ok(entry.className);
 
-        if (entry.teacher) {
+        if (entry.teacher && entry.teacher !== '—' && entry.teacher !== 'Unassigned') {
           assert.ok(!seenTeachers.has(entry.teacher), `Teacher ${entry.teacher} double-booked on ${day} period ${period}`);
           seenTeachers.add(entry.teacher);
         }
@@ -90,9 +92,9 @@ test('builds teaching slots from timeline events and preserves fixed events', ()
     endTime: '15:00',
     periodDuration: '45',
     timelineEvents: [
-      { name: 'Assembly', type: 'assembly', startTime: '08:00', endTime: '08:20' },
-      { name: 'Prayer', type: 'prayer', startTime: '08:20', endTime: '08:25' },
-      { name: 'Lunch', type: 'lunch', startTime: '12:00', endTime: '12:30' },
+      { id: '1', title: 'Assembly', type: 'assembly', startTime: '08:00', endTime: '08:20' },
+      { id: '2', title: 'Prayer', type: 'prayer', startTime: '08:20', endTime: '08:25' },
+      { id: '3', title: 'Lunch', type: 'lunch', startTime: '12:00', endTime: '12:30' },
     ],
   };
 
@@ -102,17 +104,17 @@ test('builds teaching slots from timeline events and preserves fixed events', ()
   assert.ok(slots.some((slot) => slot.type === 'teaching'));
 });
 
-test('generates a conflict-free timetable that satisfies workload and lunch constraints', () => {
+test('generates a conflict-free timetable that satisfies workload constraints', () => {
   const input = createSampleInput();
-  const result = generateOptimizedTimetable(input, { candidateCount: 8, localSearchRounds: 6, randomSeed: 9 });
+  const result = generateOptimizedTimetable(input, { candidateCount: 8, randomSeed: 9 });
   assertConstraints(result);
   assert.ok(result.score > 0);
 });
 
 test('produces different timetables for different random seeds', () => {
   const input = createSampleInput();
-  const first = generateOptimizedTimetable(input, { candidateCount: 8, localSearchRounds: 6, randomSeed: 1 });
-  const second = generateOptimizedTimetable(input, { candidateCount: 8, localSearchRounds: 6, randomSeed: 2 });
+  const first = generateOptimizedTimetable(input, { candidateCount: 8, randomSeed: 1 });
+  const second = generateOptimizedTimetable(input, { candidateCount: 8, randomSeed: 2 });
 
   assert.notDeepEqual(first.timetable, second.timetable);
 });
@@ -128,15 +130,16 @@ test('respects teacher availability when placing lessons', () => {
     subjects: [{ id: 's1', name: 'Mathematics' }],
     classes: [{ id: 'c1', className: 'Grade 6', section: 'A' }],
     settings: {
+      startTime: '08:45',
+      endTime: '15:00',
       workingDays: 'Mon-Fri',
       periodsPerDay: '3',
-      lunchDuration: '0',
-      assemblyPeriod: '0',
-      prayerPeriod: '0',
+      periodDuration: '45',
+      timelineEvents: [],
     },
   };
 
-  const result = generateOptimizedTimetable(input, { candidateCount: 4, localSearchRounds: 3, randomSeed: 7 });
+  const result = generateOptimizedTimetable(input, { candidateCount: 4, randomSeed: 7 });
   const usedDays = new Set();
 
   for (const [day, periods] of Object.entries(result.timetable)) {

@@ -3,19 +3,36 @@ import { authenticate } from "../middleware/auth.js";
 import { settingsValidation } from "../middleware/validator.js";
 import db, { ensureDefaultSettings } from "../db.js";
 import logger from "../utils/logger.js";
+import { getEffectiveTimelineEvents } from "../services/timeSlots.js";
 
 function normalizeTimelineEvents(value) {
   if (!value) return [];
-  if (Array.isArray(value)) return value.filter(Boolean);
-  if (typeof value === "string") {
+  let parsed = [];
+  if (Array.isArray(value)) {
+    parsed = value;
+  } else if (typeof value === "string") {
     try {
-      const parsed = JSON.parse(value);
-      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      const p = JSON.parse(value);
+      if (Array.isArray(p)) parsed = p;
     } catch {
-      return [];
+      parsed = [];
     }
   }
-  return [];
+
+  return parsed
+    .filter(Boolean)
+    .map((evt, idx) => ({
+      id: evt.id || `evt-${idx + 1}-${Date.now()}`,
+      title: evt.title || evt.name || "Event",
+      type: evt.type || "custom",
+      startTime: evt.startTime || "09:00",
+      endTime: evt.endTime || "09:30",
+      color: evt.color || "#6366f1",
+      icon: evt.icon || "Clock",
+      isRecurring: evt.isRecurring !== false,
+      days: Array.isArray(evt.days) ? evt.days : [],
+      isTeachingBlocked: evt.isTeachingBlocked !== false,
+    }));
 }
 
 const router = Router();
@@ -31,11 +48,17 @@ router.get("/", authenticate, async (req, res) => {
     if (!settings) {
       return res.status(404).json({ success: false, message: "Settings not found" });
     }
+
+    const effectiveEvents = getEffectiveTimelineEvents({
+      ...settings,
+      timelineEvents: normalizeTimelineEvents(settings.timelineEvents),
+    });
+
     return res.json({
       success: true,
       data: {
         ...settings,
-        timelineEvents: normalizeTimelineEvents(settings.timelineEvents),
+        timelineEvents: effectiveEvents,
       },
     });
   } catch (error) {
@@ -54,19 +77,13 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       periodsPerDay,
       periodDuration,
       workingDays,
-      shortBreaks,
-      shortBreakDuration,
-      lunchDuration,
-      lunchPosition,
-      assemblyPeriod,
-      prayerPeriod,
-      breakPositions,
-      breakDurations,
       academicYear,
       timelineEvents,
     } = req.body;
 
     await ensureDefaultSettings(userId);
+
+    const normalizedEvents = normalizeTimelineEvents(timelineEvents);
 
     await db.run(
       `UPDATE school_settings
@@ -76,14 +93,6 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
            periodsPerDay = ?,
            periodDuration = ?,
            workingDays = ?,
-           shortBreaks = ?,
-           shortBreakDuration = ?,
-           lunchDuration = ?,
-           lunchPosition = ?,
-           assemblyPeriod = ?,
-           prayerPeriod = ?,
-           breakPositions = ?,
-           breakDurations = ?,
            academicYear = ?,
            timelineEvents = ?,
            updatedAt = ?
@@ -94,16 +103,8 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       periodsPerDay,
       periodDuration,
       workingDays,
-      shortBreaks,
-      shortBreakDuration,
-      lunchDuration,
-      lunchPosition,
-      assemblyPeriod,
-      prayerPeriod,
-      breakPositions,
-      breakDurations,
       academicYear ?? "",
-      JSON.stringify(normalizeTimelineEvents(timelineEvents)),
+      JSON.stringify(normalizedEvents),
       new Date().toISOString(),
       userId
     );
@@ -113,6 +114,7 @@ router.put("/", authenticate, settingsValidation.update, async (req, res) => {
       userId
     );
     logger.info(`School settings updated for user: ${userId}`);
+
     return res.json({
       success: true,
       data: {

@@ -89,15 +89,37 @@ const defaultSettings: SchoolSettings = {
   periodsPerDay: "8",
   periodDuration: "45",
   workingDays: "Mon,Tue,Wed,Thu,Fri",
-  shortBreaks: "2",
-  shortBreakDuration: "10",
-  lunchDuration: "45",
-  lunchPosition: "5",
-  assemblyPeriod: "",
-  prayerPeriod: "",
-  breakPositions: "2,7",
-  breakDurations: "10,10",
+  timelineEvents: [
+    {
+      id: "evt-default-assembly",
+      title: "Assembly",
+      type: "assembly",
+      startTime: "08:45",
+      endTime: "09:05",
+      icon: "School",
+      isTeachingBlocked: true,
+    },
+    {
+      id: "evt-default-break1",
+      title: "Morning Break",
+      type: "break",
+      startTime: "11:10",
+      endTime: "11:20",
+      icon: "Coffee",
+      isTeachingBlocked: true,
+    },
+    {
+      id: "evt-default-lunch",
+      title: "Lunch Break",
+      type: "lunch",
+      startTime: "12:40",
+      endTime: "13:20",
+      icon: "Utensils",
+      isTeachingBlocked: true,
+    },
+  ],
 };
+
 
 
 export const useSchoolStore = create<SchoolState>((set, get) => ({
