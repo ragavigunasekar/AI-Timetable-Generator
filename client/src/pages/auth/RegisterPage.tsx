@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import api from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -13,6 +14,8 @@ function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -32,6 +35,20 @@ function RegisterPage() {
     return null;
   };
 
+  const passwordStrength = useMemo(() => {
+    const pwd = password.trim();
+    if (!pwd) return { score: 0, label: "Enter a password", color: "bg-slate-200" };
+    let score = 0;
+    if (pwd.length >= 8) score += 1;
+    if (/[a-z]/.test(pwd)) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/\d/.test(pwd)) score += 1;
+    if (pwd.length >= 12) score += 1;
+    if (score <= 2) return { score, label: "Weak", color: "bg-rose-500" };
+    if (score <= 4) return { score, label: "Good", color: "bg-amber-500" };
+    return { score, label: "Strong", color: "bg-emerald-500" };
+  }, [password]);
+
   const handleRegister = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
@@ -39,8 +56,8 @@ function RegisterPage() {
     const trimmedPassword = password.trim();
     const trimmedConfirm = confirmPassword.trim();
 
-    if (!trimmedEmail || !trimmedPassword) {
-      setError("Please fill in both email and password.");
+    if (!trimmedEmail || !trimmedPassword || !trimmedConfirm) {
+      setError("Please fill in all fields.");
       return;
     }
 
@@ -87,25 +104,23 @@ function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md p-8 rounded-2xl shadow-xl border border-slate-200">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.16),_transparent_36%),linear-gradient(135deg,_#f8fafc_0%,_#eef2ff_100%)] flex items-center justify-center p-4">
+      <div className="bg-white/95 w-full max-w-md p-8 rounded-3xl shadow-[0_20px_60px_-25px_rgba(15,23,42,0.35)] border border-slate-200 backdrop-blur">
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-              <path d="M6 12v5c3 3 9 3 12 0v-5" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 mb-4">
+            <img src="/ragavi-logo.svg" alt="Ragavi Scheduler AI logo" className="w-9 h-9" />
           </div>
           <h1 className="text-3xl font-bold text-slate-900">Create Account</h1>
           <p className="text-sm text-slate-500 mt-1">Get started with Ragavi Scheduler AI</p>
         </div>
 
-        <form onSubmit={handleRegister} className="mt-6 space-y-4">
+        <form onSubmit={handleRegister} className="mt-6 space-y-4" noValidate>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            <label htmlFor="register-email" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
               Email Address
             </label>
             <input
+              id="register-email"
               type="email"
               placeholder="you@school.com"
               value={email}
@@ -113,37 +128,68 @@ function RegisterPage() {
               className="w-full border border-slate-300 rounded-xl p-3 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
               disabled={isLoading}
               autoComplete="email"
+              autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            <label htmlFor="register-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
               Password
             </label>
-            <input
-              type="password"
-              placeholder="At least 8 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl p-3 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="register-password"
+                type={showPassword ? "text" : "password"}
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-xl p-3 pr-12 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="mt-2">
+              <div className="flex gap-1">
+                {[0, 1, 2, 3].map((step) => (
+                  <div key={step} className={`h-2 flex-1 rounded-full ${step < passwordStrength.score ? passwordStrength.color : "bg-slate-200"}`} />
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Strength: <span className="font-semibold text-slate-700">{passwordStrength.label}</span></p>
+            </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+            <label htmlFor="register-confirm-password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
               Confirm Password
             </label>
-            <input
-              type="password"
-              placeholder="Re-enter your password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full border border-slate-300 rounded-xl p-3 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
-              disabled={isLoading}
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                id="register-confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full border border-slate-300 rounded-xl p-3 pr-12 text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 p-3 rounded-xl">
@@ -167,11 +213,8 @@ function RegisterPage() {
             className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold p-3.5 rounded-xl hover:from-indigo-700 hover:to-indigo-800 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
           >
             {isLoading ? (
-              <span className="inline-flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
+              <span className="inline-flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Creating account...
               </span>
             ) : (

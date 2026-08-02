@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuthStore } from "../../store/authStore";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getApiErrorMessage } from "../../utils/errorUtils";
@@ -12,6 +12,7 @@ import {
   EyeOff,
   AlertCircle,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { LoadingState } from "../../components/common/LoadingState";
 
@@ -94,6 +95,20 @@ function ProfilePage() {
     return { valid: true, message: "Password is strong." };
   };
 
+  const passwordStrength = useMemo(() => {
+    const p = newPassword.trim();
+    if (!p) return { score: 0, label: "Enter a password", color: "bg-slate-200" };
+    let score = 0;
+    if (p.length >= 8) score += 1;
+    if (/[a-z]/.test(p)) score += 1;
+    if (/[A-Z]/.test(p)) score += 1;
+    if (/\d/.test(p)) score += 1;
+    if (p.length >= 12) score += 1;
+    if (score <= 2) return { score, label: "Weak", color: "bg-rose-500" };
+    if (score <= 4) return { score, label: "Good", color: "bg-amber-500" };
+    return { score, label: "Strong", color: "bg-emerald-500" };
+  }, [newPassword]);
+
   const handleChangePassword = async () => {
     setPasswordError("");
     setPasswordSuccess("");
@@ -117,8 +132,8 @@ function ProfilePage() {
     setSavingPassword(true);
     try {
       await api.put("/auth/profile/password", {
-        currentPassword,
-        newPassword,
+        currentPassword: currentPassword.trim(),
+        newPassword: newPassword.trim(),
       });
       setPasswordSuccess("Password changed successfully.");
       setCurrentPassword("");
@@ -291,6 +306,14 @@ function ProfilePage() {
                 {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <div className="mt-2">
+              <div className="flex gap-1">
+                {[0, 1, 2, 3].map((step) => (
+                  <div key={step} className={`h-2 flex-1 rounded-full ${step < passwordStrength.score ? passwordStrength.color : "bg-slate-200"}`} />
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Strength: <span className="font-semibold text-slate-700">{passwordStrength.label}</span></p>
+            </div>
           </div>
 
           <div>
@@ -321,8 +344,7 @@ function ProfilePage() {
             disabled={savingPassword}
             className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-3 rounded-xl transition text-sm disabled:opacity-70"
           >
-            <Save className="w-4 h-4" />
-            {savingPassword ? "Changing..." : "Change Password"}
+            {savingPassword ? <><Loader2 className="h-4 w-4 animate-spin" />Changing...</> : <><Save className="w-4 h-4" />Change Password</>}
           </button>
         </div>
       </div>

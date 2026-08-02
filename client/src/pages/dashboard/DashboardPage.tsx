@@ -1,20 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSchoolStore } from "../../store/schoolStore";
 import api from "../../services/api";
 import { useToast } from "../../components/ui/ToastProvider";
 import { getApiErrorMessage } from "../../utils/errorUtils";
-import { 
-  Users, 
-  BookOpen, 
-  Layers, 
-  Briefcase, 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  Users,
+  BookOpen,
+  Layers,
+  Briefcase,
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
   XCircle,
   HelpCircle,
   Loader2,
+  Sparkles,
+  ArrowRight,
+  CalendarDays,
+  ShieldCheck,
 } from "lucide-react";
 
 function DashboardPage() {
@@ -106,6 +110,13 @@ function DashboardPage() {
     healthBarColor = "bg-amber-500";
   }
 
+  const todayLabel = useMemo(() => new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }), []);
+
   if (isLoading && teachers.length === 0 && allocations.length === 0) {
     return (
       <div className="p-8 max-w-7xl mx-auto flex flex-col items-center justify-center py-24">
@@ -119,52 +130,51 @@ function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto animate-fade-in">
-      <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-8">Dashboard</h1>
-
-      {/* Overview stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
-          <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
-            <Users className="w-6 h-6" />
-          </div>
+      <div className="mb-8 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-indigo-900 to-violet-700 p-6 text-white shadow-[0_20px_60px_-20px_rgba(79,70,229,0.65)]">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-slate-500">Total Teachers</h3>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{teachers.length}</p>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-indigo-100">
+              <Sparkles className="h-3.5 w-3.5" />
+              Welcome back
+            </div>
+            <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight">Your timetable workspace is ready</h1>
+            <p className="mt-2 max-w-2xl text-sm text-indigo-100/90">Keep allocations, conflicts, and timetable generation moving smoothly with a cleaner overview.</p>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
-          <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
-            <BookOpen className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-500">Total Subjects</h3>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{subjects.length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
-          <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-            <Layers className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-500">Total Classes</h3>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{classes.length}</p>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 flex items-center space-x-4">
-          <div className="p-3 bg-purple-50 rounded-xl text-purple-600">
-            <Briefcase className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-slate-500">Total Allocations</h3>
-            <p className="text-3xl font-bold text-slate-900 mt-1">{allocations.length}</p>
+          <div className="rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
+            <div className="flex items-center gap-2 text-sm font-semibold text-indigo-100">
+              <CalendarDays className="h-4 w-4" />
+              {todayLabel}
+            </div>
+            <div className="mt-2 text-xl font-semibold">{teachers.length + subjects.length + classes.length} records managed</div>
           </div>
         </div>
       </div>
 
-      {/* Intelligence layer metrics (Health Score & Conflict Counters) */}
+      {/* Overview stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {[
+          { label: "Total Teachers", value: teachers.length, icon: Users, color: "bg-blue-50 text-blue-600" },
+          { label: "Total Subjects", value: subjects.length, icon: BookOpen, color: "bg-indigo-50 text-indigo-600" },
+          { label: "Total Classes", value: classes.length, icon: Layers, color: "bg-emerald-50 text-emerald-600" },
+          { label: "Total Allocations", value: allocations.length, icon: Briefcase, color: "bg-purple-50 text-purple-600" },
+        ].map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg transition-all duration-300 flex items-center space-x-4">
+              <div className={`p-3 rounded-xl ${stat.color}`}>
+                <Icon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-500">{stat.label}</h3>
+                <p className="text-3xl font-bold text-slate-900 mt-1" style={{ animationDelay: `${index * 80}ms` }}>
+                  {stat.value}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         
         {/* Health Score Card */}
@@ -283,6 +293,66 @@ function DashboardPage() {
                 View Timetable
               </Link>
             )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.3em] text-indigo-600">
+            <ShieldCheck className="h-4 w-4" />
+            Quick actions
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Link to="/allocations" className="rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-300 hover:shadow-sm">
+              <div className="flex items-center justify-between text-slate-800">
+                <span className="font-semibold">Manage allocations</span>
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Review and refine the data feeding the scheduling engine.</p>
+            </Link>
+            <Link to="/settings" className="rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-300 hover:shadow-sm">
+              <div className="flex items-center justify-between text-slate-800">
+                <span className="font-semibold">Update school settings</span>
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Fine-tune timing, days, and timetable structure.</p>
+            </Link>
+            <Link to="/timetable" className="rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-300 hover:shadow-sm">
+              <div className="flex items-center justify-between text-slate-800">
+                <span className="font-semibold">Review timetable</span>
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Inspect the generated schedule and resolve conflicts.</p>
+            </Link>
+            <Link to="/reports" className="rounded-2xl border border-slate-200 p-4 transition hover:border-indigo-300 hover:shadow-sm">
+              <div className="flex items-center justify-between text-slate-800">
+                <span className="font-semibold">Export reports</span>
+                <ArrowRight className="h-4 w-4" />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Generate CSV and JSON exports for school leadership.</p>
+            </Link>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+            <Activity className="h-4 w-4" />
+            Scheduler health
+          </div>
+          <div className="mt-5 space-y-4">
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+                <span>Health score</span>
+                <span className="text-lg font-bold text-slate-900">{healthScore}%</span>
+              </div>
+              <div className="mt-3 h-2.5 rounded-full bg-slate-200">
+                <div className={`h-2.5 rounded-full transition-all duration-500 ${healthBarColor}`} style={{ width: `${healthScore}%` }} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 p-4 text-sm text-slate-600">
+              {timetableExists ? "A generated timetable is available for review and export." : "Generate a timetable when allocations and conflicts are ready."}
+            </div>
           </div>
         </div>
       </div>
