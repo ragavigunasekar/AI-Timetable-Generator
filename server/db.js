@@ -1,8 +1,10 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 
+const DB_FILE = process.env.DB_PATH || "./school.db";
+
 const db = await open({
-  filename: "./school.db",
+  filename: DB_FILE,
   driver: sqlite3.Database,
 });
 

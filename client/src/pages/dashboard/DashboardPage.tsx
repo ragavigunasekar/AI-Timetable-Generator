@@ -87,26 +87,26 @@ function DashboardPage() {
 
   if (timetableExists) {
     statusText = "Generated Successfully";
-    statusColorClass = "text-green-700 bg-green-50 border-green-200";
+    statusColorClass = "text-green-800 bg-green-50 border-green-200";
     StatusIcon = CheckCircle2;
   } else if (criticalConflictsCount > 0 || warningConflictsCount > 0) {
     statusText = "Generation Blocked";
-    statusColorClass = "text-red-700 bg-red-50 border-red-200";
+    statusColorClass = "text-red-800 bg-red-50 border-red-200";
     StatusIcon = XCircle;
   } else if (allocations.length === 0) {
     statusText = "Missing Allocations";
-    statusColorClass = "text-amber-700 bg-amber-50 border-amber-200";
+    statusColorClass = "text-amber-900 bg-amber-50 border-amber-200";
     StatusIcon = AlertTriangle;
   }
 
   // Health score color scheme
-  let healthColorClass = "text-green-600 border-green-200 bg-green-50/50";
+  let healthColorClass = "text-emerald-900 border-emerald-200 bg-emerald-50/50";
   let healthBarColor = "bg-green-500";
   if (healthScore < 60) {
-    healthColorClass = "text-red-600 border-red-200 bg-red-50/50";
+    healthColorClass = "text-red-800 border-red-200 bg-red-50/50";
     healthBarColor = "bg-red-500";
   } else if (healthScore < 90) {
-    healthColorClass = "text-amber-600 border-amber-200 bg-amber-50/50";
+    healthColorClass = "text-amber-900 border-amber-200 bg-amber-50/50";
     healthBarColor = "bg-amber-500";
   }
 
@@ -184,7 +184,7 @@ function DashboardPage() {
               <h3 className="text-lg font-bold text-slate-800">Timetable Health</h3>
               <Activity className="text-slate-400 h-5 w-5" />
             </div>
-            <p className="text-xs text-slate-400 mb-6">
+            <p className="text-xs text-slate-500 mb-6">
               A metric computed dynamically from allocations and active constraint violations.
             </p>
           </div>
@@ -217,7 +217,7 @@ function DashboardPage() {
               <h3 className="text-lg font-bold text-slate-800">Active Conflicts</h3>
               <AlertTriangle className="text-slate-400 h-5 w-5" />
             </div>
-            <p className="text-xs text-slate-400 mb-6">
+            <p className="text-xs text-slate-500 mb-6">
               Critical and Warning issues will block timetable generation until corrected.
             </p>
           </div>
@@ -261,7 +261,7 @@ function DashboardPage() {
               <h3 className="text-lg font-bold text-slate-800">Scheduler Workflow</h3>
               <StatusIcon className="text-slate-400 h-5 w-5" />
             </div>
-            <p className="text-xs text-slate-400 mb-6">
+            <p className="text-xs text-slate-500 mb-6">
               Status indicator for timetable generation. Issues must be resolved in Allocations.
             </p>
           </div>

@@ -73,9 +73,12 @@ export function convertLegacySettingsToEvents(settings) {
     const breakIdx = breakPositions.indexOf(p);
     if (breakIdx !== -1) {
       const dur = breakDurations[breakIdx] || Number(settings.shortBreakDuration) || 10;
+      const breakTitle = breakPositions.length === 1
+        ? "Morning Break"
+        : (breakIdx === 0 ? "Morning Break" : (breakIdx === 1 ? "Afternoon Break" : `Short Break ${breakIdx + 1}`));
       events.push({
         id: `legacy-break-${p}`,
-        title: "Short Break",
+        title: breakTitle,
         type: "break",
         startTime: toTime(curr),
         endTime: toTime(curr + dur),

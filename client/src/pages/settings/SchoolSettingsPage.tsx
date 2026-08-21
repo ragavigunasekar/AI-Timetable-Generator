@@ -64,15 +64,15 @@ const ICON_OPTIONS = [
 ];
 
 const PRESET_EVENT_TYPES = [
-  { label: "Assembly", icon: "School", type: "assembly" },
-  { label: "Morning Break", icon: "Coffee", type: "break" },
-  { label: "Lunch Break", icon: "Utensils", type: "lunch" },
-  { label: "Afternoon Break", icon: "Coffee", type: "break" },
-  { label: "Sports", icon: "Dumbbell", type: "sports" },
-  { label: "Study Hour", icon: "BookOpen", type: "study" },
-  { label: "Prayer", icon: "Landmark", type: "prayer" },
-  { label: "Exam", icon: "FileText", type: "exam" },
-  { label: "Club", icon: "Target", type: "club" },
+  { label: "Assembly", icon: "School", type: "assembly", startTime: "09:00", endTime: "09:15" },
+  { label: "Morning Break", icon: "Coffee", type: "break", startTime: "10:45", endTime: "11:00" },
+  { label: "Lunch Break", icon: "Utensils", type: "lunch", startTime: "12:30", endTime: "13:15" },
+  { label: "Afternoon Break", icon: "Coffee", type: "break", startTime: "14:30", endTime: "14:45" },
+  { label: "Sports", icon: "Dumbbell", type: "sports", startTime: "15:00", endTime: "16:00" },
+  { label: "Study Hour", icon: "BookOpen", type: "study", startTime: "15:30", endTime: "16:15" },
+  { label: "Prayer", icon: "Landmark", type: "prayer", startTime: "08:45", endTime: "09:00" },
+  { label: "Exam", icon: "FileText", type: "exam", startTime: "09:30", endTime: "11:30" },
+  { label: "Club", icon: "Target", type: "club", startTime: "15:00", endTime: "16:00" },
 ];
 
 function toMinutes(timeStr: string) {
@@ -132,8 +132,8 @@ function normalizeTimelineEvents(events?: TimelineEvent[] | null): TimelineEvent
   return events.filter(Boolean).map((event, index) => ({
     ...event,
     id: event.id || `event-${index + 1}`,
-    title: event.title || event.name || "Event",
-    name: event.name || event.title || "Event",
+    title: event.title !== undefined && event.title !== null ? event.title : (event.name ?? ""),
+    name: event.name !== undefined && event.name !== null ? event.name : (event.title ?? ""),
     type: event.type || "custom",
     startTime: event.startTime || "",
     endTime: event.endTime || "",
@@ -180,8 +180,9 @@ function validateTimelineEvents(events: TimelineEvent[], schoolStartTime?: strin
       const otherStart = toMinutes(otherEvent.startTime);
       const otherEnd = toMinutes(otherEvent.endTime);
       if (start < otherEnd && end > otherStart) {
-        errors[index].push("Overlaps another event.");
-        errors[otherIndex].push("Overlaps another event.");
+        if (!errors[index].includes("Overlaps another event.")) {
+          errors[index].push("Overlaps another event.");
+        }
       }
     });
   });
@@ -456,13 +457,36 @@ function SchoolSettingsPage() {
     });
   }, []);
 
-  const addTimelineEvent = (preset?: { label: string; icon: string; type: string }) => {
+  const addTimelineEvent = (preset?: { label: string; icon: string; type: string; startTime?: string; endTime?: string }) => {
+    let startTime = preset?.startTime || "10:00";
+    let endTime = preset?.endTime || "10:15";
+
+    if (!preset?.startTime) {
+      const existingEvents = settings.timelineEvents || [];
+      if (existingEvents.length > 0) {
+        let maxEndMins = 0;
+        existingEvents.forEach((e) => {
+          const eEnd = toMinutes(e.endTime);
+          if (eEnd > maxEndMins) maxEndMins = eEnd;
+        });
+        if (maxEndMins > 0 && maxEndMins < 24 * 60 - 30) {
+          const h = Math.floor(maxEndMins / 60).toString().padStart(2, "0");
+          const m = (maxEndMins % 60).toString().padStart(2, "0");
+          startTime = `${h}:${m}`;
+          const endMins = maxEndMins + 15;
+          const eh = Math.floor(endMins / 60).toString().padStart(2, "0");
+          const em = (endMins % 60).toString().padStart(2, "0");
+          endTime = `${eh}:${em}`;
+        }
+      }
+    }
+
     const newEvent: TimelineEvent = {
       id: uuidv4(),
       title: preset?.label || "New Event",
       type: preset?.type || "custom",
-      startTime: "10:00",
-      endTime: "10:15",
+      startTime,
+      endTime,
       icon: preset?.icon || "Clock",
       isTeachingBlocked: true,
       days: [],
@@ -473,11 +497,17 @@ function SchoolSettingsPage() {
     }));
   };
 
-  const removeTimelineEvent = useCallback((id: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      timelineEvents: (prev.timelineEvents || []).filter((e) => e.id !== id),
-    }));
+  const removeTimelineEvent = useCallback((index: number, id?: string) => {
+    setSettings((prev) => {
+      const list = prev.timelineEvents || [];
+      return {
+        ...prev,
+        timelineEvents: list.filter((e, i) => {
+          if (id && e.id) return e.id !== id;
+          return i !== index;
+        }),
+      };
+    });
   }, []);
 
   // Validation
@@ -771,7 +801,7 @@ function SchoolSettingsPage() {
                         key={evt.id}
                         event={evt}
                         onChange={updateTimelineEvent}
-                        onRemove={() => removeTimelineEvent(evt.id || "")}
+                        onRemove={() => removeTimelineEvent(idx, evt.id)}
                         validationMessages={timelineValidation[idx]}
                       />
                     ))}

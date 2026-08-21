@@ -1,4 +1,10 @@
-# Logs
+# ─── Build artifacts ─────────────────────────────────────────────────────────
+node_modules
+dist
+dist-ssr
+*.local
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
 logs
 *.log
 npm-debug.log*
@@ -7,12 +13,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ─── Environment variables ────────────────────────────────────────────────────
+.env
+.env.*
 
-# Editor directories and files
+# ─── Playwright QA artifacts ──────────────────────────────────────────────────
+playwright-report/
+test-results/
+tests/e2e/**/*.png
+tests/e2e/**/*.webm
+
+# ─── Editor directories and files ────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,6 +33,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-# Environment variables
-.env
-.env.*

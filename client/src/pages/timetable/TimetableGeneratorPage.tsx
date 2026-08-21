@@ -433,18 +433,36 @@ function TimetableGeneratorPage() {
     computeConflicts(present);
   }, [present, computeConflicts]);
 
-  // Load latest timetable on mount
+  const setInitialData = useSchoolStore((state) => state.setInitialData);
+
+  // Load latest timetable & school data on mount
   useEffect(() => {
     const loadData = async () => {
       try {
-        const settingsRes = await api.get("/settings");
-        if (settingsRes.data?.data) {
-          setSchoolSettings(settingsRes.data.data);
-        }
+        const [settingsRes, teachersRes, subjectsRes, classesRes, allocationsRes, ttRes] = await Promise.all([
+          api.get("/settings"),
+          api.get("/teachers"),
+          api.get("/subjects"),
+          api.get("/classes"),
+          api.get("/allocations"),
+          api.get("/timetables"),
+        ]);
 
-        const ttRes = await api.get("/timetables");
+        const settingsData = settingsRes.data?.data || settingsRes.data;
+        const teachersData = teachersRes.data?.data || teachersRes.data;
+        const subjectsData = subjectsRes.data?.data || subjectsRes.data;
+        const classesData = classesRes.data?.data || classesRes.data;
+        const allocationsData = allocationsRes.data?.data || allocationsRes.data;
+
+        setInitialData({
+          schoolSettings: settingsData,
+          teachers: Array.isArray(teachersData) ? teachersData : [],
+          subjects: Array.isArray(subjectsData) ? subjectsData : [],
+          classes: Array.isArray(classesData) ? classesData : [],
+          allocations: Array.isArray(allocationsData) ? allocationsData : [],
+        });
+
         const list = ttRes.data?.data || ttRes.data || [];
-
         if (list.length > 0) {
           const latest = list[0];
           const singleRes = await api.get(`/timetables/${latest.id}`);
@@ -459,13 +477,13 @@ function TimetableGeneratorPage() {
             reset(timetable);
           }
         }
-      } catch {
-        // Fallback to local store data
+      } catch (err) {
+        console.error("Failed to load timetable page data:", err);
       }
     };
 
     loadData();
-  }, [reset, setSchoolSettings]);
+  }, [reset, setInitialData, setSchoolSettings]);
 
   // Generate Timetable Action
   const handleGenerate = async () => {
@@ -476,7 +494,7 @@ function TimetableGeneratorPage() {
 
     setGenerating(true);
     try {
-      const response = await api.post("/timetable/generate", {
+      const response = await api.post("/ai/timetable", {
         candidateCount: 8,
         localSearchRounds: 6,
       });
