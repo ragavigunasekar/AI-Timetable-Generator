@@ -1,12 +1,13 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import pg from "pg";
+import logger from "./utils/logger.js";
 
-const DB_FILE = process.env.DB_PATH || "./school.db";
+const DATABASE_URL = process.env.DATABASE_URL || process.env.DIRECT_URL;
+export const usePg = Boolean(DATABASE_URL && DATABASE_URL.trim().length > 0);
 
-const db = await open({
-  filename: DB_FILE,
-  driver: sqlite3.Database,
-});
+let sqliteDb = null;
+let pgPool = null;
 
 const VALID_TABLES = new Set([
   "users",
@@ -22,7 +23,169 @@ export function isValidTable(tableName) {
   return VALID_TABLES.has(tableName);
 }
 
-const TABLE_CREATORS = {
+// ─── PostgreSQL Query Translation Helpers ────────────────────────────────────
+const CAMEL_CASE_COLUMNS = [
+  "passwordHash",
+  "userId",
+  "className",
+  "periodsPerWeek",
+  "periodsPerDay",
+  "periodDuration",
+  "workingDays",
+  "shortBreaks",
+  "shortBreakDuration",
+  "lunchDuration",
+  "lunchPosition",
+  "assemblyPeriod",
+  "prayerPeriod",
+  "breakPositions",
+  "breakDurations",
+  "academicYear",
+  "timelineEvents",
+  "timetableData",
+  "classId",
+  "subjectId",
+  "teacherId",
+  "createdAt",
+  "updatedAt",
+];
+
+export function formatPgQuery(sql) {
+  let formatted = sql;
+
+  // Replace datetime('now') with CURRENT_TIMESTAMP
+  formatted = formatted.replace(/datetime\('now'\)/gi, "CURRENT_TIMESTAMP");
+
+  // Ensure camelCase column names are enclosed in double quotes for Postgres
+  for (const col of CAMEL_CASE_COLUMNS) {
+    const regex = new RegExp(`(?<!["\\w])${col}(?!["\\w])`, "g");
+    formatted = formatted.replace(regex, `"${col}"`);
+  }
+
+  // Replace ? placeholders with $1, $2, $3...
+  let paramIndex = 1;
+  formatted = formatted.replace(/\?/g, () => `$${paramIndex++}`);
+
+  // For INSERT queries without RETURNING, append RETURNING id / userId
+  if (/^\s*INSERT\s+INTO/i.test(formatted) && !/\bRETURNING\b/i.test(formatted)) {
+    if (/\bINSERT\s+INTO\s+"?school_settings"?/i.test(formatted)) {
+      formatted += ' RETURNING "userId"';
+    } else {
+      formatted += ' RETURNING id';
+    }
+  }
+
+  return formatted;
+}
+
+// ─── Database Initialization ──────────────────────────────────────────────────
+if (usePg) {
+  logger.info(`🐘 PostgreSQL mode active (DATABASE_URL detected)`);
+  try {
+    pgPool = new pg.Pool({
+      connectionString: DATABASE_URL,
+      ssl: process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false },
+    });
+
+    const { rows } = await pgPool.query("SELECT 1 as ok");
+    logger.info(`✅ PostgreSQL connection verified: ${rows[0]?.ok === 1 ? "connected" : "ready"}`);
+
+    pgPool.on("error", (err) => {
+      logger.error(`PostgreSQL Pool Error: ${err.message}`);
+    });
+  } catch (err) {
+    logger.error(`❌ PostgreSQL connection failed. Failing startup instead of silently falling back to SQLite. ${err.message}`);
+    throw err;
+  }
+} else {
+  const DB_FILE = process.env.DB_PATH || "./school.db";
+  logger.info(`🗄️ SQLite mode active (file: ${DB_FILE})`);
+  sqliteDb = await open({
+    filename: DB_FILE,
+    driver: sqlite3.Database,
+  });
+}
+
+// ─── PostgreSQL Schema Creation ───────────────────────────────────────────────
+const PG_TABLE_CREATORS = {
+  users: `CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'teacher',
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  teachers: `CREATE TABLE IF NOT EXISTS teachers (
+    id VARCHAR(255) PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(255),
+    name VARCHAR(255),
+    subject VARCHAR(255),
+    workload VARCHAR(255),
+    availability TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri',
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  subjects: `CREATE TABLE IF NOT EXISTS subjects (
+    id VARCHAR(255) PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255),
+    "periodsPerWeek" VARCHAR(255),
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  classes: `CREATE TABLE IF NOT EXISTS classes (
+    id VARCHAR(255) PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "className" VARCHAR(255),
+    section VARCHAR(255),
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  allocations: `CREATE TABLE IF NOT EXISTS allocations (
+    id VARCHAR(255) PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "classId" VARCHAR(255),
+    "subjectId" VARCHAR(255),
+    "teacherId" VARCHAR(255),
+    periods INTEGER,
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  school_settings: `CREATE TABLE IF NOT EXISTS school_settings (
+    "userId" INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    "schoolName" VARCHAR(255),
+    "startTime" VARCHAR(255),
+    "endTime" VARCHAR(255),
+    "periodsPerDay" VARCHAR(255),
+    "periodDuration" VARCHAR(255),
+    "workingDays" VARCHAR(255),
+    "shortBreaks" VARCHAR(255),
+    "shortBreakDuration" VARCHAR(255),
+    "lunchDuration" VARCHAR(255),
+    "lunchPosition" VARCHAR(255),
+    "assemblyPeriod" VARCHAR(255),
+    "prayerPeriod" VARCHAR(255),
+    "breakPositions" VARCHAR(255),
+    "breakDurations" VARCHAR(255),
+    "academicYear" VARCHAR(255),
+    "timelineEvents" TEXT,
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+  timetables: `CREATE TABLE IF NOT EXISTS timetables (
+    id VARCHAR(255) PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255),
+    "timetableData" TEXT,
+    "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  )`,
+};
+
+// ─── SQLite Schema Creators ───────────────────────────────────────────────────
+const SQLITE_TABLE_CREATORS = {
   users: `CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT UNIQUE NOT NULL,
@@ -105,299 +268,78 @@ const TABLE_CREATORS = {
   )`,
 };
 
-const TABLE_COLUMNS = {
-  users: {
-    email: "TEXT UNIQUE NOT NULL",
-    passwordHash: "TEXT NOT NULL",
-    role: "TEXT NOT NULL DEFAULT 'teacher'",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
+// ─── Execute Initial Migrations / DDL ──────────────────────────────────────────
+try {
+  logger.info("🚀 Verifying database tables and schema...");
+  if (usePg) {
+    for (const [tableName, creatorSql] of Object.entries(PG_TABLE_CREATORS)) {
+      await pgPool.query(creatorSql);
+      logger.info(`✅ PostgreSQL table verified: '${tableName}'`);
+    }
+  } else {
+    for (const [tableName, creatorSql] of Object.entries(SQLITE_TABLE_CREATORS)) {
+      await sqliteDb.exec(creatorSql);
+      logger.info(`✅ SQLite table verified: '${tableName}'`);
+    }
+  }
+  logger.info("✓ Database schema verification completed successfully!");
+} catch (err) {
+  logger.error(`❌ DB Migration Error: ${err.message}`);
+  if (usePg) {
+    // Fail startup clearly if production DB configuration is invalid
+    throw err;
+  }
+}
+
+// ─── Universal DB Driver Wrapper Interface ────────────────────────────────────
+const db = {
+  async get(sql, ...params) {
+    const flatParams = params.flat();
+    if (usePg) {
+      const formattedSql = formatPgQuery(sql);
+      const res = await pgPool.query(formattedSql, flatParams);
+      return res.rows[0] || undefined;
+    }
+    return sqliteDb.get(sql, ...flatParams);
   },
-  teachers: {
-    userId: "INTEGER NOT NULL",
-    code: "TEXT",
-    name: "TEXT",
-    subject: "TEXT",
-    workload: "TEXT",
-    availability: "TEXT DEFAULT 'Mon,Tue,Wed,Thu,Fri'",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
+
+  async all(sql, ...params) {
+    const flatParams = params.flat();
+    if (usePg) {
+      const formattedSql = formatPgQuery(sql);
+      const res = await pgPool.query(formattedSql, flatParams);
+      return res.rows;
+    }
+    return sqliteDb.all(sql, ...flatParams);
   },
-  subjects: {
-    userId: "INTEGER NOT NULL",
-    name: "TEXT",
-    periodsPerWeek: "TEXT",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
+
+  async run(sql, ...params) {
+    const flatParams = params.flat();
+    if (usePg) {
+      const formattedSql = formatPgQuery(sql);
+      const res = await pgPool.query(formattedSql, flatParams);
+      const insertedId = res.rows[0]?.id ?? res.rows[0]?.userId ?? null;
+      return {
+        lastID: insertedId,
+        changes: res.rowCount,
+      };
+    }
+    return sqliteDb.run(sql, ...flatParams);
   },
-  classes: {
-    userId: "INTEGER NOT NULL",
-    className: "TEXT",
-    section: "TEXT",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
-  },
-  allocations: {
-    userId: "INTEGER NOT NULL",
-    classId: "TEXT",
-    subjectId: "TEXT",
-    teacherId: "TEXT",
-    periods: "INTEGER",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
-  },
-  school_settings: {
-    userId: "INTEGER PRIMARY KEY",
-    schoolName: "TEXT",
-    startTime: "TEXT",
-    endTime: "TEXT",
-    periodsPerDay: "TEXT",
-    periodDuration: "TEXT",
-    workingDays: "TEXT",
-    shortBreaks: "TEXT",
-    shortBreakDuration: "TEXT",
-    lunchDuration: "TEXT",
-    lunchPosition: "TEXT",
-    assemblyPeriod: "TEXT",
-    prayerPeriod: "TEXT",
-    breakPositions: "TEXT",
-    breakDurations: "TEXT",
-    academicYear: "TEXT",
-    timelineEvents: "TEXT",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
-  },
-  timetables: {
-    userId: "INTEGER NOT NULL",
-    name: "TEXT",
-    timetableData: "TEXT",
-    createdAt: "TEXT DEFAULT (datetime('now'))",
-    updatedAt: "TEXT DEFAULT (datetime('now'))",
+
+  async exec(sql) {
+    if (usePg) {
+      const formattedSql = formatPgQuery(sql);
+      await pgPool.query(formattedSql);
+      return;
+    }
+    return sqliteDb.exec(sql);
   },
 };
 
-async function migrateOldSchema() {
-  try {
-    const teachersCols = await db.all("PRAGMA table_info(teachers)");
-    const hasTeacherUserId = teachersCols.some((c) => c.name.toLowerCase() === "userid");
-    const usersCols = await db.all("PRAGMA table_info(users)");
-    const usersColNames = new Set(usersCols.map((c) => c.name.toLowerCase()));
-    const usersMissingTimestamps = !usersColNames.has("createdat") || !usersColNames.has("updatedat");
-
-    if (!hasTeacherUserId || usersMissingTimestamps) {
-      console.log("🔄 Migrating legacy schema: dropping and recreating all tables with new schema...");
-
-      let existingUsers = [];
-      let existingTeachers = [];
-      let existingSubjects = [];
-      let existingClasses = [];
-      let existingAllocations = [];
-      let existingSettings = null;
-      let existingTimetables = [];
-
-      try { existingUsers = await db.all("SELECT * FROM users"); } catch { /* no users table */ }
-      try { existingTeachers = await db.all("SELECT * FROM teachers"); } catch { /* empty */ }
-      try { existingSubjects = await db.all("SELECT * FROM subjects"); } catch { /* empty */ }
-      try { existingClasses = await db.all("SELECT * FROM classes"); } catch { /* empty */ }
-      try { existingAllocations = await db.all("SELECT * FROM allocations"); } catch { /* empty */ }
-      try { existingSettings = await db.get("SELECT * FROM school_settings WHERE id = 1"); } catch { /* empty */ }
-      try { existingTimetables = await db.all("SELECT * FROM timetables"); } catch { /* empty */ }
-
-      const legacyUserId = 1;
-      const hasLegacyUser = existingUsers.some((u) => u.id === legacyUserId)
-        || existingTeachers.length > 0
-        || existingSubjects.length > 0
-        || existingClasses.length > 0
-        || existingAllocations.length > 0
-        || !!existingSettings
-        || existingTimetables.length > 0;
-
-      if (hasLegacyUser && !existingUsers.some((u) => u.id === legacyUserId)) {
-        console.log("🔄 Creating legacy placeholder user for orphan data...");
-        existingUsers.unshift({
-          id: legacyUserId,
-          email: "legacy@migrated.local",
-          passwordHash: "$2a$10$migratedLegacyUserPlaceholderHashXXXXXXXXXXXXXXXX",
-          role: "teacher",
-        });
-      }
-
-      await db.exec("DROP TABLE IF EXISTS timetables");
-      await db.exec("DROP TABLE IF EXISTS allocations");
-      await db.exec("DROP TABLE IF EXISTS school_settings");
-      await db.exec("DROP TABLE IF EXISTS classes");
-      await db.exec("DROP TABLE IF EXISTS subjects");
-      await db.exec("DROP TABLE IF EXISTS teachers");
-      await db.exec("DROP TABLE IF EXISTS users");
-
-      for (const creatorSql of Object.values(TABLE_CREATORS)) {
-        await db.exec(creatorSql);
-      }
-
-      for (const u of existingUsers) {
-        await db.run(
-          `INSERT INTO users (id, email, passwordHash, role, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-          u.id,
-          u.email,
-          u.passwordHash,
-          u.role || "teacher"
-        );
-      }
-      console.log(`✅ Migrated ${existingUsers.length} users`);
-
-      for (const t of existingTeachers) {
-        await db.run(
-          `INSERT INTO teachers (id, userId, code, name, subject, workload, availability)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          t.id,
-          t.userId ?? legacyUserId,
-          t.code,
-          t.name,
-          t.subject,
-          t.workload,
-          t.availability ?? "Mon,Tue,Wed,Thu,Fri"
-        );
-      }
-      console.log(`✅ Migrated ${existingTeachers.length} teachers`);
-
-      for (const s of existingSubjects) {
-        await db.run(
-          `INSERT INTO subjects (id, userId, name, periodsPerWeek)
-           VALUES (?, ?, ?, ?)`,
-          s.id,
-          s.userId ?? legacyUserId,
-          s.name,
-          s.periodsPerWeek
-        );
-      }
-      console.log(`✅ Migrated ${existingSubjects.length} subjects`);
-
-      for (const c of existingClasses) {
-        await db.run(
-          `INSERT INTO classes (id, userId, className, section)
-           VALUES (?, ?, ?, ?)`,
-          c.id,
-          c.userId ?? legacyUserId,
-          c.className,
-          c.section
-        );
-      }
-      console.log(`✅ Migrated ${existingClasses.length} classes`);
-
-      for (const a of existingAllocations) {
-        await db.run(
-          `INSERT INTO allocations (id, userId, classId, subjectId, teacherId, periods)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          a.id,
-          a.userId ?? legacyUserId,
-          a.classId,
-          a.subjectId,
-          a.teacherId,
-          a.periods
-        );
-      }
-      console.log(`✅ Migrated ${existingAllocations.length} allocations`);
-
-      if (existingSettings) {
-        await db.run(
-          `INSERT INTO school_settings
-           (userId, schoolName, startTime, endTime, periodsPerDay, periodDuration,
-            workingDays, shortBreaks, shortBreakDuration, lunchDuration,
-            lunchPosition, assemblyPeriod, prayerPeriod, breakPositions, breakDurations, academicYear)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          existingSettings.userId ?? legacyUserId,
-          existingSettings.schoolName ?? "My School",
-          existingSettings.startTime ?? "08:45",
-          existingSettings.endTime ?? "16:00",
-          existingSettings.periodsPerDay ?? "8",
-          existingSettings.periodDuration ?? "45",
-          existingSettings.workingDays ?? "Mon,Tue,Wed,Thu,Fri",
-          existingSettings.shortBreaks ?? "2",
-          existingSettings.shortBreakDuration ?? "10",
-          existingSettings.lunchDuration ?? "45",
-          existingSettings.lunchPosition ?? "5",
-          existingSettings.assemblyPeriod ?? "",
-          existingSettings.prayerPeriod ?? "",
-          existingSettings.breakPositions ?? "2,7",
-          existingSettings.breakDurations ?? "10,10",
-          existingSettings.academicYear ?? ""
-        );
-        console.log("✅ Migrated school settings");
-      }
-
-      for (const tt of existingTimetables) {
-        await db.run(
-          `INSERT INTO timetables (id, userId, name, timetableData, createdAt, updatedAt)
-           VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))`,
-          tt.id,
-          tt.userId ?? legacyUserId,
-          tt.name ?? "Untitled Timetable",
-          tt.timetableData
-        );
-      }
-      console.log(`✅ Migrated ${existingTimetables.length} timetables`);
-
-      console.log("✓ Legacy schema migration completed!");
-    }
-  } catch (err) {
-    console.warn("⚠ Legacy migration check skipped:", err.message);
-  }
-}
-
-try {
-  console.log("🚀 Starting database migrations...");
-  for (const [tableName, creatorSql] of Object.entries(TABLE_CREATORS)) {
-    await db.exec(creatorSql);
-
-    const dbCols = await db.all(`PRAGMA table_info(${tableName})`);
-    const existingColNames = dbCols.map((c) => c.name.toLowerCase());
-
-    const targetCols = TABLE_COLUMNS[tableName] || {};
-    for (const [colName, colType] of Object.entries(targetCols)) {
-      if (!existingColNames.includes(colName.toLowerCase())) {
-        if (colName.toLowerCase() === "userid" && tableName === "school_settings") continue;
-        if (colName.toLowerCase() === "userid") {
-          console.log(`🔄 Critical: Adding userId to ${tableName}...`);
-        }
-        try {
-          await db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${colName} ${colType}`);
-          console.log(`🔄 DB Migration: Added missing column '${colName}' (${colType}) to '${tableName}'`);
-        } catch (alterErr) {
-          console.warn(`⚠ Could not add column ${colName} to ${tableName}: ${alterErr.message}`);
-        }
-      }
-    }
-
-    const verifiedCols = await db.all(`PRAGMA table_info(${tableName})`);
-    const verifiedColNames = new Set(
-      verifiedCols.map((column) => column.name.toLowerCase())
-    );
-    const missingColumns = Object.keys(targetCols).filter(
-      (columnName) => !verifiedColNames.has(columnName.toLowerCase())
-    );
-
-    if (missingColumns.length > 0) {
-      console.warn(
-        `⚠ Schema verification warning for '${tableName}'. Missing columns: ${missingColumns.join(", ")}. Will try legacy migration.`
-      );
-    }
-
-    console.log(
-      `✅ Schema verified for '${tableName}' (${verifiedCols.length} columns found).`
-    );
-  }
-
-  await migrateOldSchema();
-
-  console.log("✓ Database migrations completed successfully!");
-} catch (err) {
-  console.error("❌ DB Migration Error:", err);
-}
-
 export async function ensureDefaultSettings(userId) {
   const existing = await db.get(
-    "SELECT userId FROM school_settings WHERE userId = ?",
+    'SELECT "userId" FROM school_settings WHERE "userId" = ?',
     userId
   );
 
@@ -405,22 +347,22 @@ export async function ensureDefaultSettings(userId) {
     await db.run(
       `INSERT INTO school_settings
       (
-        userId,
-        schoolName,
-        startTime,
-        endTime,
-        periodsPerDay,
-        periodDuration,
-        workingDays,
-        shortBreaks,
-        shortBreakDuration,
-        lunchDuration,
-        lunchPosition,
-        assemblyPeriod,
-        prayerPeriod,
-        breakPositions,
-        breakDurations,
-        academicYear
+        "userId",
+        "schoolName",
+        "startTime",
+        "endTime",
+        "periodsPerDay",
+        "periodDuration",
+        "workingDays",
+        "shortBreaks",
+        "shortBreakDuration",
+        "lunchDuration",
+        "lunchPosition",
+        "assemblyPeriod",
+        "prayerPeriod",
+        "breakPositions",
+        "breakDurations",
+        "academicYear"
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       userId,
@@ -440,7 +382,7 @@ export async function ensureDefaultSettings(userId) {
       "10,10",
       ""
     );
-    console.log(`✅ Default school settings created for user ${userId}`);
+    logger.info(`✅ Default school settings created for user ${userId}`);
   }
 }
 
