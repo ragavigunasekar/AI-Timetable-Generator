@@ -71,6 +71,7 @@ interface SchoolState {
   setAllocations: (allocations: Allocation[]) => void;
   setGeneratedTimetable: (timetable: TimetableData) => void;
   clearGeneratedTimetable: () => void;
+  reset: () => void;
   recalculateConflicts: () => void;
   setInitialData: (data: {
     teachers?: Teacher[];
@@ -120,22 +121,31 @@ const defaultSettings: SchoolSettings = {
   ],
 };
 
+const createDefaultSchoolSettings = (): SchoolSettings => ({
+  ...defaultSettings,
+  timelineEvents: Array.isArray(defaultSettings.timelineEvents)
+    ? defaultSettings.timelineEvents.map((event) => ({ ...event }))
+    : [],
+});
 
+const createEmptySchoolState = () => ({
+  teachers: [] as Teacher[],
+  subjects: [] as Subject[],
+  classes: [] as SchoolClass[],
+  schoolSettings: createDefaultSchoolSettings(),
+  allocations: [] as Allocation[],
+  generatedTimetable: {} as TimetableData,
+  conflicts: [] as Conflict[],
+  timetableHealthScore: 100,
+  optimizationRecommendations: [] as OptimizationRecommendation[],
+  unplacedAllocations: [] as any[],
+});
 
 export const useSchoolStore = create<SchoolState>((set, get) => ({
-  teachers: [],
-  subjects: [],
-  classes: [],
-  schoolSettings: defaultSettings,
-  allocations: [],
-  generatedTimetable: {},
-  conflicts: [],
-  timetableHealthScore: 100,
-  optimizationRecommendations: [],
+  ...createEmptySchoolState(),
+  reset: () => set(createEmptySchoolState()),
   setOptimizationRecommendations: (recommendations) => set({ optimizationRecommendations: recommendations }),
   clearOptimizationRecommendations: () => set({ optimizationRecommendations: [] }),
-  
-  unplacedAllocations: [],
   setUnplacedAllocations: (allocs) => set({ unplacedAllocations: allocs }),
   
   recalculateConflicts: () => {

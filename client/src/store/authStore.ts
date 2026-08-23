@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useSchoolStore } from "./schoolStore";
 
 const STORAGE_KEY = "ragavi_token";
 
@@ -41,14 +42,17 @@ export const useAuthStore = create<AuthState>((set) => ({
     const nextToken = token && !isTokenExpired(token) ? token : null;
 
     if (nextToken) {
+      useSchoolStore.getState().reset();
       window.localStorage.setItem(STORAGE_KEY, nextToken);
     } else {
+      useSchoolStore.getState().reset();
       window.localStorage.removeItem(STORAGE_KEY);
     }
 
     set({ token: nextToken, isAuthenticated: Boolean(nextToken) });
   },
   logout: () => {
+    useSchoolStore.getState().reset();
     window.localStorage.removeItem(STORAGE_KEY);
     set({ token: null, isAuthenticated: false });
   },
