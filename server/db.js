@@ -27,6 +27,9 @@ export function isValidTable(tableName) {
 const CAMEL_CASE_COLUMNS = [
   "passwordHash",
   "userId",
+  "schoolName",
+  "startTime",
+  "endTime",
   "className",
   "periodsPerWeek",
   "periodsPerDay",
