@@ -363,6 +363,18 @@ function TimetableGeneratorPage() {
   const [search, setSearch] = useState("");
   const [generating, setGenerating] = useState(false);
 
+  const parseTimetablePayload = useCallback((value: unknown): TimetableData | null => {
+    if (!value) return null;
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value) as TimetableData;
+      } catch {
+        return null;
+      }
+    }
+    return value as TimetableData;
+  }, []);
+
   // Drag state
   const [dragSource, setDragSource] = useState<{ entry: StoreTimetableEntry; day: string; period: number } | null>(null);
   const [dragOverCell, setDragOverCell] = useState<{ day: string; period: number } | null>(null);
@@ -439,13 +451,18 @@ function TimetableGeneratorPage() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [settingsRes, teachersRes, subjectsRes, classesRes, allocationsRes, ttRes] = await Promise.all([
+        const [settingsRes, teachersRes, subjectsRes, classesRes, allocationsRes, currentTimetableRes] = await Promise.all([
           api.get("/settings"),
           api.get("/teachers"),
           api.get("/subjects"),
           api.get("/classes"),
           api.get("/allocations"),
-          api.get("/timetables"),
+          api.get("/timetables/current").catch((error) => {
+            if (error?.response?.status === 404) {
+              return null;
+            }
+            throw error;
+          }),
         ]);
 
         const settingsData = settingsRes.data?.data || settingsRes.data;
@@ -462,20 +479,12 @@ function TimetableGeneratorPage() {
           allocations: Array.isArray(allocationsData) ? allocationsData : [],
         });
 
-        const list = ttRes.data?.data || ttRes.data || [];
-        if (list.length > 0) {
-          const latest = list[0];
-          const singleRes = await api.get(`/timetables/${latest.id}`);
-          const data = singleRes.data?.data || singleRes.data;
-          if (data?.timetableData) {
-            let timetable: TimetableData;
-            if (typeof data.timetableData === "string") {
-              timetable = JSON.parse(data.timetableData);
-            } else {
-              timetable = data.timetableData;
-            }
-            reset(timetable);
-          }
+        const currentTimetableData = currentTimetableRes?.data?.data || currentTimetableRes?.data;
+        const timetablePayload = currentTimetableData?.timetableData ?? currentTimetableData ?? null;
+        const timetable = parseTimetablePayload(timetablePayload);
+
+        if (timetable) {
+          reset(timetable);
         }
       } catch (err) {
         console.error("Failed to load timetable page data:", err);
@@ -483,7 +492,7 @@ function TimetableGeneratorPage() {
     };
 
     loadData();
-  }, [reset, setInitialData, setSchoolSettings]);
+  }, [parseTimetablePayload, reset, setInitialData, setSchoolSettings]);
 
   // Generate Timetable Action
   const handleGenerate = async () => {
@@ -500,9 +509,12 @@ function TimetableGeneratorPage() {
       });
 
       const resData = response.data?.data || response.data;
-      if (resData?.timetable) {
-        reset(resData.timetable);
-        if (resData.unplacedAllocations) {
+      const persistedTimetableData = resData?.persistedTimetable?.timetableData ?? resData?.timetable;
+      const timetable = parseTimetablePayload(persistedTimetableData);
+
+      if (timetable) {
+        reset(timetable);
+        if (resData?.unplacedAllocations) {
           setUnplacedAllocations(resData.unplacedAllocations);
         }
         showToast("success", "Timetable generated using Daily Timeline Events!");

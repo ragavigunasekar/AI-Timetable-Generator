@@ -8,6 +8,7 @@ export const usePg = Boolean(DATABASE_URL && DATABASE_URL.trim().length > 0);
 
 let sqliteDb = null;
 let pgPool = null;
+let sqliteTransactionQueue = Promise.resolve();
 
 const VALID_TABLES = new Set([
   "users",
@@ -51,6 +52,8 @@ const CAMEL_CASE_COLUMNS = [
   "teacherId",
   "createdAt",
   "updatedAt",
+  "isCurrent",
+  "version",
 ];
 
 export function formatPgQuery(sql) {
@@ -182,6 +185,8 @@ const PG_TABLE_CREATORS = {
     "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255),
     "timetableData" TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    "isCurrent" BOOLEAN NOT NULL DEFAULT FALSE,
     "createdAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
   )`,
@@ -265,6 +270,8 @@ const SQLITE_TABLE_CREATORS = {
     userId INTEGER NOT NULL,
     name TEXT,
     timetableData TEXT,
+    version INTEGER NOT NULL DEFAULT 1,
+    isCurrent INTEGER NOT NULL DEFAULT 0,
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
@@ -293,6 +300,91 @@ try {
     throw err;
   }
 }
+
+async function ensureTimetableLifecycleColumns() {
+  try {
+    if (usePg) {
+      const { rows } = await pgPool.query(
+        `SELECT column_name AS name FROM information_schema.columns WHERE table_name = 'timetables'`
+      );
+      const existing = new Set(rows.map((row) => row.name));
+
+      if (!existing.has("version")) {
+        await pgPool.query('ALTER TABLE timetables ADD COLUMN "version" INTEGER NOT NULL DEFAULT 1');
+      }
+      if (!existing.has("isCurrent")) {
+        await pgPool.query('ALTER TABLE timetables ADD COLUMN "isCurrent" BOOLEAN NOT NULL DEFAULT FALSE');
+      }
+    } else {
+      const tableInfo = await sqliteDb.all("PRAGMA table_info(timetables)");
+      const existing = new Set(tableInfo.map((column) => column.name));
+
+      if (!existing.has("version")) {
+        await sqliteDb.run("ALTER TABLE timetables ADD COLUMN version INTEGER NOT NULL DEFAULT 1");
+      }
+      if (!existing.has("isCurrent")) {
+        await sqliteDb.run("ALTER TABLE timetables ADD COLUMN isCurrent INTEGER NOT NULL DEFAULT 0");
+      }
+    }
+  } catch (error) {
+    logger.warn(`Could not ensure timetable lifecycle columns: ${error.message}`);
+  }
+}
+
+await ensureTimetableLifecycleColumns();
+
+async function ensureCurrentTimetableBackfill() {
+  try {
+    if (usePg) {
+      await pgPool.query(`
+        WITH ranked AS (
+          SELECT id, "userId", ROW_NUMBER() OVER (
+            PARTITION BY "userId" ORDER BY "updatedAt" DESC, id DESC
+          ) AS rn
+          FROM timetables
+        )
+        UPDATE timetables t
+        SET version = r.rn,
+            "isCurrent" = (r.rn = 1)
+        FROM ranked r
+        WHERE t.id = r.id
+      `);
+
+      await pgPool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_timetables_current_user
+        ON timetables ("userId")
+        WHERE "isCurrent" = TRUE
+      `);
+    } else {
+      const rows = await sqliteDb.all('SELECT DISTINCT userId FROM timetables ORDER BY userId');
+      for (const row of rows) {
+        const userRows = await sqliteDb.all(
+          'SELECT id FROM timetables WHERE userId = ? ORDER BY updatedAt DESC, id DESC',
+          row.userId
+        );
+
+        for (let index = 0; index < userRows.length; index += 1) {
+          await sqliteDb.run(
+            'UPDATE timetables SET version = ?, isCurrent = ? WHERE id = ?',
+            index + 1,
+            index === 0 ? 1 : 0,
+            userRows[index].id
+          );
+        }
+      }
+
+      await sqliteDb.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_timetables_current_user
+        ON timetables (userId)
+        WHERE isCurrent = 1
+      `);
+    }
+  } catch (error) {
+    logger.warn(`Could not backfill current timetable state: ${error.message}`);
+  }
+}
+
+await ensureCurrentTimetableBackfill();
 
 // ─── Universal DB Driver Wrapper Interface ────────────────────────────────────
 const db = {
@@ -337,6 +429,81 @@ const db = {
       return;
     }
     return sqliteDb.exec(sql);
+  },
+
+  async transaction(callback) {
+    if (usePg) {
+      const client = await pgPool.connect();
+      const tx = {
+        async get(sql, ...params) {
+          const flatParams = params.flat();
+          const res = await client.query(formatPgQuery(sql), flatParams);
+          return res.rows[0] || undefined;
+        },
+        async all(sql, ...params) {
+          const flatParams = params.flat();
+          const res = await client.query(formatPgQuery(sql), flatParams);
+          return res.rows;
+        },
+        async run(sql, ...params) {
+          const flatParams = params.flat();
+          const res = await client.query(formatPgQuery(sql), flatParams);
+          return {
+            lastID: res.rows[0]?.id ?? res.rows[0]?.userId ?? null,
+            changes: res.rowCount,
+          };
+        },
+        async exec(sql) {
+          await client.query(formatPgQuery(sql));
+          return;
+        },
+      };
+
+      try {
+        await client.query("BEGIN");
+        const result = await callback(tx);
+        await client.query("COMMIT");
+        return result;
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+
+    const queue = sqliteTransactionQueue.then(async () => {
+      await sqliteDb.run("BEGIN");
+      const tx = {
+        async get(sql, ...params) {
+          const flatParams = params.flat();
+          return sqliteDb.get(sql, ...flatParams);
+        },
+        async all(sql, ...params) {
+          const flatParams = params.flat();
+          return sqliteDb.all(sql, ...flatParams);
+        },
+        async run(sql, ...params) {
+          const flatParams = params.flat();
+          return sqliteDb.run(sql, ...flatParams);
+        },
+        async exec(sql) {
+          return sqliteDb.exec(sql);
+        },
+      };
+
+      try {
+        const result = await callback(tx);
+        await sqliteDb.run("COMMIT");
+        return result;
+      } catch (error) {
+        await sqliteDb.run("ROLLBACK");
+        throw error;
+      }
+    });
+
+    sqliteTransactionQueue = queue.catch(() => undefined);
+    return queue;
   },
 };
 
